@@ -53,7 +53,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: leviathan-*
           generate_release_notes: true
