@@ -1,0 +1,37 @@
+# Support tickets: the smallest complete Leviathan config.
+#   leviathan --index tickets.db index --config examples/tickets/leviathan.toml
+# Every field is a path into a record: `a.b` for nesting, `items[].x` for
+# every element of an array. Only what you set is used; the rest is optional.
+
+[about]
+name = "Example support desk"
+description = "Customer support tickets with resolutions"
+record = "ticket"     # noun for one record, used in output
+group = "customer"    # noun for one group
+
+[source]
+paths = ["tickets.jsonl"]   # relative to this file
+
+[fields]
+id = "ticket_id"
+title = "subject"
+text = ["body", "comments[].text", "resolution", "tags[]"]
+group = "customer.id"
+group_name = "customer.name"
+date = ["created_at"]
+filters = ["status", "priority", "channel", "tags[]"]
+display = ["status", "priority", "resolution"]
+empty_values = ["n/a", "see notes"]
+
+[rank]
+title_weight = 2.0
+
+# Prefer tickets that actually say how they were solved.
+[[rank.boost]]
+field = "resolution"
+weight = 0.15
+
+[[rank.boost]]
+field = "status"
+equals = "closed"
+weight = 0.03

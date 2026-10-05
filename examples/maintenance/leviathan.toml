@@ -1,0 +1,48 @@
+# Maintenance log: service records for the machines in a facility.
+# Used by the benchmark against the synthetic log from bench/synth:
+#   cargo run --release --manifest-path bench/synth/Cargo.toml -- --records 100000 --out bench/data/demo
+#   leviathan --index maint.db index -c examples/maintenance/leviathan.toml bench/data/demo/corpus
+#   leviathan --index maint.db search -g "hall b air handler 03" "fan belt squealing"
+
+[about]
+name = "Facility maintenance log"
+description = "Service records: what broke, on which machine, and what fixed it"
+record = "service record"
+group = "machine"
+
+[fields]
+id = "id"
+title = "summary"
+text = [
+    "summary",
+    "codes.problem",
+    "codes.cause",
+    "codes.action",
+    "resolution",
+    "steps[].text",
+    "steps[].note",
+    "parts[].sku",
+    "parts[].name",
+    "labor[].note",
+    "plan.name",
+]
+group = "asset.id"
+group_name = "asset.name"
+date = ["closed", "opened"]
+filters = ["status", "kind", "crew", "priority"]
+display = ["kind", "status", "resolution", "steps[].text", "parts[].name"]
+# Write-ups that say nothing about what was done.
+empty_values = ["done", "completed", "fixed", "see notes", "n/a", "ok"]
+
+[rank]
+title_weight = 2.0
+
+# Prefer records that say what was actually done.
+[[rank.boost]]
+field = ["resolution", "steps[].note", "parts[].sku", "labor[].note"]
+weight = 0.15
+
+[[rank.boost]]
+field = "status"
+equals = "closed"
+weight = 0.03

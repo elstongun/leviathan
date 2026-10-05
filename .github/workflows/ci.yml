@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace --locked
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --locked
+
+  bench-smoke:
+    name: benchmark smoke (10k records)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get install -y ripgrep
+      - run: cargo build --release --workspace --locked
+      - run: python3 -m pip install -r bench/requirements.txt
+      - run: python3 bench/run_bench.py --scales 10000 --queries 100
+      - run: python3 bench/report.py
+      - name: Leviathan must keep finding the answer
+        run: |
+          python3 - <<'EOF'
+          import json
+          s = json.load(open("bench/results/results.json"))["scales"][0]["summary"]["leviathan"]
+          print(s)
+          assert s["hit5"] >= 0.93, f"hit@5 regressed: {s['hit5']:.3f}"
+          assert s["tokens_median"] <= 1500, f"answers got bigger: {s['tokens_median']}"
+          EOF

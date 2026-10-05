@@ -1,0 +1,6 @@
+Leviathan
+Copyright 2026 The Leviathan Authors
+
+This product includes SQLite (public domain), compiled in via the
+rusqlite / libsqlite3-sys crates. See THIRD_PARTY.md for all dependencies
+and their licenses.

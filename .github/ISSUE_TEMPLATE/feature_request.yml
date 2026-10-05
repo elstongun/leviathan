@@ -1,0 +1,20 @@
+name: Feature request / data source
+description: Propose a feature or support for another kind of data source
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you or your agent trying to answer that Leviathan can't today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+  - type: input
+    id: source
+    attributes:
+      label: Data source (if relevant)
+      placeholder: PostgreSQL export, Parquet via DuckDB, Elasticsearch dump, Jira CSV...

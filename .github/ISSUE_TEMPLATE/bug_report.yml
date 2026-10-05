@@ -1,0 +1,32 @@
+name: Bug report
+description: Something returned the wrong answer, crashed, or misbehaved
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran, what you got, and what you expected.
+      placeholder: |
+        leviathan search -g acme "login loop"
+        expected T-1001 first, got ...
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Minimal sample
+      description: A few synthetic or redacted records (and your leviathan.toml) that reproduce it. Never paste real or sensitive data.
+      render: json
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `leviathan --version`
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and agent
+      placeholder: Ubuntu 24.04, Claude Code via MCP

@@ -1,0 +1,2 @@
+tiktoken>=0.7
+matplotlib>=3.8

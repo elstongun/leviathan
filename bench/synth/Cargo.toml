@@ -1,0 +1,11 @@
+[package]
+name = "leviathan-synth"
+version = "0.1.0"
+description = "Deterministic synthetic maintenance log + gold-labeled queries for benchmarking Leviathan"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde_json = { version = "1.0.151", features = ["preserve_order"] }

@@ -1,0 +1,17 @@
+/target/
+*.db
+*.db.building
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Benchmark corpora are generated (bench/synth) and can be many GB.
+/bench/data/
+/bench/.venv/
+/bench/results/scale_*.json
+__pycache__/
+
+.env
+.DS_Store
+.idea/
+.vscode/
