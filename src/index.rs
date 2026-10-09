@@ -119,6 +119,7 @@ pub fn build(
     opts: BuildOptions,
 ) -> Result<IngestReport> {
     let mapping = Mapping::new(config)?;
+    let config = &Config { memory: Default::default(), ..config.clone() };
     let config_json = serde_json::to_string(config)?;
     let manifest = source::manifest(sources, &config_json)?;
     if !opts.force && !manifest.is_empty() && index_is_current(index_path, &manifest) {

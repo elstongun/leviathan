@@ -101,11 +101,49 @@ Builds are atomic and skipped when nothing changed; `upsert` and `delete` keep a
 **CLI + skill (recommended):** any agent with a shell can call it. Copy
 [`skills/leviathan`](skills/leviathan/SKILL.md) into `~/.claude/skills/` or
 paste it into `AGENTS.md` / `.cursor/rules`. Costs 0 tokens until used.
+[`skills/leviathan-memory`](skills/leviathan-memory/SKILL.md) does the same
+for memory.
 
 **MCP (optional):** `leviathan mcp` serves four read-only stdio tools
 (`search`, `resolve_group`, `get`, `describe`) whose descriptions include a
-summary of your dataset (~640 tokens per session). `leviathan wrap
-<claude|cursor|codex|vscode|gemini|windsurf|generic>` prints the config.
+summary of your dataset (~640 tokens per session). `leviathan wrap <agent>`
+prints the config for 24 agents (Claude Code, Codex, Cursor, VS Code /
+Copilot, Gemini CLI, Windsurf, Cline, Zed, JetBrains and more) and
+`--apply` writes it; `leviathan wrap` lists them all
+([docs/AGENTS.md](docs/AGENTS.md)).
+
+**Remote (optional):** `leviathan serve --http` serves the same tools as
+Streamable HTTP MCP, REST and OpenAPI, with a bearer token or OAuth 2.1, so
+claude.ai, ChatGPT, the Anthropic and OpenAI APIs and agent frameworks can
+connect ([docs/REMOTE.md](docs/REMOTE.md)).
+
+## Memory
+
+Optional read/write memory for agents, in its own SQLite file. The agent
+`remember`s one claim at a time; anything that can change has a `key`, so the
+next write replaces the old value instead of contradicting it. Sessions start
+with a short briefing, and `recall` returns only what fits a token budget.
+
+```bash
+leviathan wrap claude --memory --hooks --rules --apply   # tools, session-start briefing, always-on rule
+leviathan memory remember "Prefers pnpm over npm" --kind preference -s josh -k package_manager
+leviathan memory recall package manager
+leviathan memory import ~/.claude/projects/<project>/memory/MEMORY.md   # bring an existing markdown memory
+```
+
+<p align="center">
+  <img src="docs/assets/memory-tokens-dark.png" alt="Tokens loaded at session start over 300 sessions: a markdown memory file grows to 33K, Leviathan stays under 1K" width="100%">
+</p>
+
+| After 300 sessions | Leviathan memory | MEMORY.md, whole file | MEMORY.md, first 200 lines |
+|---|---:|---:|---:|
+| Tokens at session start | **736** | 33,313 | 2,588 |
+| Answer in context | **100%** | 100% | 18% |
+| Stale value in context | **0%** | 73.8% | 36.4% |
+
+Writes are explicit (no model runs inside Leviathan), secrets are refused,
+and history stays queryable (`as_of`, `history`). Guide, formats and
+benchmark: [docs/MEMORY.md](docs/MEMORY.md).
 
 ## Commands
 
@@ -114,7 +152,10 @@ summary of your dataset (~640 tokens per session). `leviathan wrap
 | `init` / `index` / `upsert` / `delete` | Propose a mapping / build / update / remove records |
 | `search [-g G] [words]` | Ranked records (`--scope`, `--where`, `--since`, `--until`, `-n`, `--offset`) |
 | `recent [-g G]` · `resolve <g>` · `get <id…>` · `describe` | Newest · group candidates · full records · index summary |
-| `mcp` · `wrap <agent>` | MCP server · agent config |
+| `memory remember` / `recall` / `forget` / `briefing` | Write / ranked read / retire / session-start briefing (`--memory=PATH`) |
+| `memory list` / `history` / `stats` / `import` / `export` / `prune` | Browse / slot versions / counts / markdown or JSONL in / backup / clean up |
+| `mcp [--memory] [--remote URL]` · `serve --http ADDR` | stdio MCP server or bridge · HTTP MCP + REST server |
+| `wrap [agent]` | Agent config (`--memory`, `--hooks`, `--rules`, `--apply`); no agent lists targets |
 
 Global: `--index PATH`, `--json`, `--max-chars N`. Exit codes: `0` ok (zero hits included), `1` error, `2` bad request, `3` group unknown/ambiguous.
 
@@ -139,6 +180,7 @@ bench/.venv/bin/python bench/run_bench.py && bench/.venv/bin/python bench/report
 ## Contributing, security, license
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) (ranking changes need before/after
-benchmark numbers) and [SECURITY.md](SECURITY.md) (read-only, offline,
-`unsafe`-free; report privately). Licensed under [Apache-2.0](LICENSE);
+benchmark numbers) and [SECURITY.md](SECURITY.md) (indexes read-only,
+offline unless you serve or connect over HTTP, `unsafe`-free; report
+privately). Licensed under [Apache-2.0](LICENSE);
 dependencies in [THIRD_PARTY.md](THIRD_PARTY.md).

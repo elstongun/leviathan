@@ -4,6 +4,9 @@
 *.db-journal
 *.db-wal
 *.db-shm
+*.bak
+leviathan.token
+*.token
 
 # Benchmark corpora are generated (bench/synth) and can be many GB.
 /bench/data/

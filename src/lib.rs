@@ -25,9 +25,14 @@
 pub mod card;
 pub mod config;
 pub mod fields;
+#[cfg(feature = "remote")]
+pub mod http;
 pub mod index;
 pub mod infer;
 pub mod mcp;
+pub mod memory;
+#[cfg(feature = "remote")]
+pub mod oauth;
 pub mod query;
 pub mod render;
 pub mod source;

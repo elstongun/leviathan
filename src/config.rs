@@ -20,6 +20,53 @@ pub struct Config {
     pub source: SourceConfig,
     pub fields: Fields,
     pub rank: Rank,
+    #[serde(skip_serializing_if = "MemoryConfig::is_default")]
+    pub memory: MemoryConfig,
+}
+
+/// The read/write memory store (`leviathan memory`, `--memory`). Separate
+/// from the data index, which stays read-only.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct MemoryConfig {
+    /// Memory database, relative to the config file
+    /// [default: ~/.leviathan/memory.db].
+    pub path: Option<String>,
+    /// Namespace new memories are written to.
+    pub namespace: String,
+    /// Namespaces recall reads by default [default: just `namespace`].
+    pub read: Vec<String>,
+    /// Token budget for one recall.
+    pub budget: usize,
+    /// Token budget for the session-start briefing.
+    pub briefing_budget: usize,
+    /// Character cap for one memory.
+    pub max_chars: usize,
+    /// Recency half-life in days per kind; 0 means no decay.
+    pub half_life: std::collections::BTreeMap<String, f64>,
+    /// Subjects whose memories lead every briefing.
+    pub pin: Vec<String>,
+}
+
+impl Default for MemoryConfig {
+    fn default() -> Self {
+        Self {
+            path: None,
+            namespace: "default".into(),
+            read: Vec::new(),
+            budget: 800,
+            briefing_budget: 600,
+            max_chars: 400,
+            half_life: Default::default(),
+            pin: Vec::new(),
+        }
+    }
+}
+
+impl MemoryConfig {
+    fn is_default(&self) -> bool {
+        self == &Self::default()
+    }
 }
 
 /// How results talk about the data: "3 tickets for customer acme".
@@ -141,6 +188,12 @@ impl Config {
                     *p = dir.join(&*p).display().to_string();
                 }
             }
+            if let Some(p) = &mut cfg.memory.path
+                && Path::new(p).is_relative()
+                && !p.starts_with('~')
+            {
+                *p = dir.join(&*p).display().to_string();
+            }
         }
         cfg.validate()?;
         Ok(cfg)
@@ -163,6 +216,21 @@ impl Config {
         for b in &self.rank.boost {
             if b.field.is_empty() || !(b.weight.is_finite() && b.weight > -1.0) {
                 bail!("each [[rank.boost]] needs a `field` and a `weight` above -1");
+            }
+        }
+        let m = &self.memory;
+        if !(50..=20_000).contains(&m.budget) || !(50..=20_000).contains(&m.briefing_budget) {
+            bail!("`memory.budget` and `memory.briefing_budget` must be between 50 and 20000 tokens");
+        }
+        if !(40..=4000).contains(&m.max_chars) {
+            bail!("`memory.max_chars` must be between 40 and 4000");
+        }
+        for (kind, days) in &m.half_life {
+            if crate::memory::Kind::parse(kind).is_none() || !(days.is_finite() && *days >= 0.0) {
+                bail!(
+                    "`memory.half_life.{kind}`: kind must be one of {} and days >= 0",
+                    crate::memory::Kind::NAMES
+                );
             }
         }
         Ok(())

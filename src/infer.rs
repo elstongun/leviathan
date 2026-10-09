@@ -428,6 +428,7 @@ pub fn propose(profile: Profile, sources: &[Source]) -> Proposal {
             empty_values: Vec::new(),
         },
         rank: Default::default(),
+        memory: Default::default(),
     };
     Proposal { config, reasons, profile }
 }

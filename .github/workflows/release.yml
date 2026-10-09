@@ -32,7 +32,11 @@ jobs:
           "$bin" --version
           "$bin" --index smoke.db index -q -c examples/tickets/leviathan.toml
           "$bin" --index smoke.db search -g acme "login loop" -n 1 | grep -q T-1001
-          rm -f smoke.db*
+          export LEVIATHAN_MEMORY="$PWD/smoke-memory.db"
+          "$bin" memory remember "Prefers pnpm" -s smoke -k package_manager
+          "$bin" memory remember "Switched to bun" -s smoke -k package_manager
+          "$bin" memory recall package manager | grep -q "Switched to bun"
+          rm -f smoke.db* smoke-memory.db*
       - name: Package
         shell: bash
         run: |

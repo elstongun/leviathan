@@ -245,6 +245,39 @@ pub fn ingest(r: &IngestReport) -> String {
     out
 }
 
+pub fn memory_stats(s: &crate::memory::MemoryStats) -> String {
+    let mut out = format!(
+        "leviathan memory {} · {:.1} MB · schema {}\n",
+        s.path.display(),
+        s.bytes as f64 / 1e6,
+        s.schema_version
+    );
+    let _ = writeln!(
+        out,
+        "  {} current · {} superseded · {} forgotten · {} expired",
+        thousands(s.current),
+        thousands(s.superseded),
+        thousands(s.forgotten),
+        thousands(s.expired)
+    );
+    let _ = writeln!(out, "  writes to {} · reads {}", s.namespace, s.read.join(", "));
+    let pairs =
+        |list: &[(String, i64)]| list.iter().map(|(k, n)| format!("{k} {n}")).collect::<Vec<_>>().join(", ");
+    if !s.by_kind.is_empty() {
+        let _ = writeln!(out, "  kinds: {}", pairs(&s.by_kind));
+    }
+    if s.by_namespace.len() > 1 || s.by_namespace.first().is_some_and(|(n, _)| *n != s.namespace) {
+        let _ = writeln!(out, "  namespaces: {}", pairs(&s.by_namespace));
+    }
+    if !s.top_subjects.is_empty() {
+        let _ = writeln!(out, "  subjects: {}", pairs(&s.top_subjects));
+    }
+    if let Some(n) = &s.newest {
+        let _ = writeln!(out, "  last write {n}");
+    }
+    out
+}
+
 pub fn describe(d: &Description) -> String {
     let (record, group) = (d.about.record.as_str(), d.about.group.as_str());
     let mut out = format!("leviathan index {}", d.index_path.display());

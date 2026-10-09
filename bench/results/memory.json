@@ -1,0 +1,3694 @@
+{
+ "generated_at": "2026-10-09T09:36:07Z",
+ "tokenizer": "o200k_base",
+ "environment": {
+  "leviathan": "leviathan 0.2.0",
+  "cpu": "AMD Ryzen 7 2700X Eight-Core Processor",
+  "cores": 16
+ },
+ "sessions": {
+  "sessions": 300,
+  "learn_per_session": 8,
+  "ask_per_session": 5,
+  "subjects": 60,
+  "facts": 283,
+  "memories_written": 2400,
+  "schema_tokens": 800,
+  "per_session": [
+   {
+    "session": 1,
+    "start_tokens": {
+     "leviathan": 61,
+     "md_full": 0,
+     "md_200": 0,
+     "md_compacted": 0
+    },
+    "recall_tokens": 0,
+    "questions": 0,
+    "md_lines": 8
+   },
+   {
+    "session": 2,
+    "start_tokens": {
+     "leviathan": 404,
+     "md_full": 101,
+     "md_200": 101,
+     "md_compacted": 101
+    },
+    "recall_tokens": 362,
+    "questions": 5,
+    "md_lines": 16
+   },
+   {
+    "session": 3,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 205,
+     "md_200": 205,
+     "md_compacted": 205
+    },
+    "recall_tokens": 400,
+    "questions": 5,
+    "md_lines": 24
+   },
+   {
+    "session": 4,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 314,
+     "md_200": 314,
+     "md_compacted": 314
+    },
+    "recall_tokens": 450,
+    "questions": 5,
+    "md_lines": 32
+   },
+   {
+    "session": 5,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 412,
+     "md_200": 412,
+     "md_compacted": 412
+    },
+    "recall_tokens": 437,
+    "questions": 5,
+    "md_lines": 40
+   },
+   {
+    "session": 6,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 509,
+     "md_200": 509,
+     "md_compacted": 509
+    },
+    "recall_tokens": 480,
+    "questions": 5,
+    "md_lines": 48
+   },
+   {
+    "session": 7,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 609,
+     "md_200": 609,
+     "md_compacted": 609
+    },
+    "recall_tokens": 462,
+    "questions": 5,
+    "md_lines": 56
+   },
+   {
+    "session": 8,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 711,
+     "md_200": 711,
+     "md_compacted": 697
+    },
+    "recall_tokens": 535,
+    "questions": 5,
+    "md_lines": 64
+   },
+   {
+    "session": 9,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 810,
+     "md_200": 810,
+     "md_compacted": 796
+    },
+    "recall_tokens": 460,
+    "questions": 5,
+    "md_lines": 72
+   },
+   {
+    "session": 10,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 922,
+     "md_200": 922,
+     "md_compacted": 867
+    },
+    "recall_tokens": 475,
+    "questions": 5,
+    "md_lines": 80
+   },
+   {
+    "session": 11,
+    "start_tokens": {
+     "leviathan": 774,
+     "md_full": 1027,
+     "md_200": 1027,
+     "md_compacted": 959
+    },
+    "recall_tokens": 467,
+    "questions": 5,
+    "md_lines": 88
+   },
+   {
+    "session": 12,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 1133,
+     "md_200": 1133,
+     "md_compacted": 1040
+    },
+    "recall_tokens": 476,
+    "questions": 5,
+    "md_lines": 96
+   },
+   {
+    "session": 13,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 1237,
+     "md_200": 1237,
+     "md_compacted": 1128
+    },
+    "recall_tokens": 478,
+    "questions": 5,
+    "md_lines": 104
+   },
+   {
+    "session": 14,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 1338,
+     "md_200": 1338,
+     "md_compacted": 1229
+    },
+    "recall_tokens": 461,
+    "questions": 5,
+    "md_lines": 112
+   },
+   {
+    "session": 15,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 1443,
+     "md_200": 1443,
+     "md_compacted": 1308
+    },
+    "recall_tokens": 546,
+    "questions": 5,
+    "md_lines": 120
+   },
+   {
+    "session": 16,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 1552,
+     "md_200": 1552,
+     "md_compacted": 1405
+    },
+    "recall_tokens": 477,
+    "questions": 5,
+    "md_lines": 128
+   },
+   {
+    "session": 17,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 1654,
+     "md_200": 1654,
+     "md_compacted": 1494
+    },
+    "recall_tokens": 470,
+    "questions": 5,
+    "md_lines": 136
+   },
+   {
+    "session": 18,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 1752,
+     "md_200": 1752,
+     "md_compacted": 1592
+    },
+    "recall_tokens": 482,
+    "questions": 5,
+    "md_lines": 144
+   },
+   {
+    "session": 19,
+    "start_tokens": {
+     "leviathan": 746,
+     "md_full": 1859,
+     "md_200": 1859,
+     "md_compacted": 1686
+    },
+    "recall_tokens": 471,
+    "questions": 5,
+    "md_lines": 152
+   },
+   {
+    "session": 20,
+    "start_tokens": {
+     "leviathan": 737,
+     "md_full": 1966,
+     "md_200": 1966,
+     "md_compacted": 1780
+    },
+    "recall_tokens": 541,
+    "questions": 5,
+    "md_lines": 160
+   },
+   {
+    "session": 21,
+    "start_tokens": {
+     "leviathan": 737,
+     "md_full": 2072,
+     "md_200": 2072,
+     "md_compacted": 1854
+    },
+    "recall_tokens": 587,
+    "questions": 5,
+    "md_lines": 168
+   },
+   {
+    "session": 22,
+    "start_tokens": {
+     "leviathan": 730,
+     "md_full": 2180,
+     "md_200": 2180,
+     "md_compacted": 1937
+    },
+    "recall_tokens": 459,
+    "questions": 5,
+    "md_lines": 176
+   },
+   {
+    "session": 23,
+    "start_tokens": {
+     "leviathan": 758,
+     "md_full": 2283,
+     "md_200": 2283,
+     "md_compacted": 2040
+    },
+    "recall_tokens": 615,
+    "questions": 5,
+    "md_lines": 184
+   },
+   {
+    "session": 24,
+    "start_tokens": {
+     "leviathan": 758,
+     "md_full": 2384,
+     "md_200": 2384,
+     "md_compacted": 2128
+    },
+    "recall_tokens": 544,
+    "questions": 5,
+    "md_lines": 192
+   },
+   {
+    "session": 25,
+    "start_tokens": {
+     "leviathan": 758,
+     "md_full": 2483,
+     "md_200": 2483,
+     "md_compacted": 2213
+    },
+    "recall_tokens": 561,
+    "questions": 5,
+    "md_lines": 200
+   },
+   {
+    "session": 26,
+    "start_tokens": {
+     "leviathan": 725,
+     "md_full": 2588,
+     "md_200": 2588,
+     "md_compacted": 2292
+    },
+    "recall_tokens": 666,
+    "questions": 5,
+    "md_lines": 208
+   },
+   {
+    "session": 27,
+    "start_tokens": {
+     "leviathan": 725,
+     "md_full": 2704,
+     "md_200": 2588,
+     "md_compacted": 2345
+    },
+    "recall_tokens": 505,
+    "questions": 5,
+    "md_lines": 216
+   },
+   {
+    "session": 28,
+    "start_tokens": {
+     "leviathan": 754,
+     "md_full": 2807,
+     "md_200": 2588,
+     "md_compacted": 2413
+    },
+    "recall_tokens": 469,
+    "questions": 5,
+    "md_lines": 224
+   },
+   {
+    "session": 29,
+    "start_tokens": {
+     "leviathan": 754,
+     "md_full": 2916,
+     "md_200": 2588,
+     "md_compacted": 2470
+    },
+    "recall_tokens": 728,
+    "questions": 5,
+    "md_lines": 232
+   },
+   {
+    "session": 30,
+    "start_tokens": {
+     "leviathan": 754,
+     "md_full": 3019,
+     "md_200": 2588,
+     "md_compacted": 2547
+    },
+    "recall_tokens": 1098,
+    "questions": 5,
+    "md_lines": 240
+   },
+   {
+    "session": 31,
+    "start_tokens": {
+     "leviathan": 754,
+     "md_full": 3124,
+     "md_200": 2588,
+     "md_compacted": 2602
+    },
+    "recall_tokens": 774,
+    "questions": 5,
+    "md_lines": 248
+   },
+   {
+    "session": 32,
+    "start_tokens": {
+     "leviathan": 754,
+     "md_full": 3232,
+     "md_200": 2588,
+     "md_compacted": 2683
+    },
+    "recall_tokens": 619,
+    "questions": 5,
+    "md_lines": 256
+   },
+   {
+    "session": 33,
+    "start_tokens": {
+     "leviathan": 754,
+     "md_full": 3344,
+     "md_200": 2588,
+     "md_compacted": 2766
+    },
+    "recall_tokens": 662,
+    "questions": 5,
+    "md_lines": 264
+   },
+   {
+    "session": 34,
+    "start_tokens": {
+     "leviathan": 754,
+     "md_full": 3453,
+     "md_200": 2588,
+     "md_compacted": 2826
+    },
+    "recall_tokens": 484,
+    "questions": 5,
+    "md_lines": 272
+   },
+   {
+    "session": 35,
+    "start_tokens": {
+     "leviathan": 721,
+     "md_full": 3559,
+     "md_200": 2588,
+     "md_compacted": 2894
+    },
+    "recall_tokens": 772,
+    "questions": 5,
+    "md_lines": 280
+   },
+   {
+    "session": 36,
+    "start_tokens": {
+     "leviathan": 721,
+     "md_full": 3671,
+     "md_200": 2588,
+     "md_compacted": 2963
+    },
+    "recall_tokens": 1295,
+    "questions": 5,
+    "md_lines": 288
+   },
+   {
+    "session": 37,
+    "start_tokens": {
+     "leviathan": 721,
+     "md_full": 3771,
+     "md_200": 2588,
+     "md_compacted": 3024
+    },
+    "recall_tokens": 471,
+    "questions": 5,
+    "md_lines": 296
+   },
+   {
+    "session": 38,
+    "start_tokens": {
+     "leviathan": 721,
+     "md_full": 3867,
+     "md_200": 2588,
+     "md_compacted": 3095
+    },
+    "recall_tokens": 545,
+    "questions": 5,
+    "md_lines": 304
+   },
+   {
+    "session": 39,
+    "start_tokens": {
+     "leviathan": 721,
+     "md_full": 3979,
+     "md_200": 2588,
+     "md_compacted": 3167
+    },
+    "recall_tokens": 957,
+    "questions": 5,
+    "md_lines": 312
+   },
+   {
+    "session": 40,
+    "start_tokens": {
+     "leviathan": 745,
+     "md_full": 4092,
+     "md_200": 2588,
+     "md_compacted": 3212
+    },
+    "recall_tokens": 661,
+    "questions": 5,
+    "md_lines": 320
+   },
+   {
+    "session": 41,
+    "start_tokens": {
+     "leviathan": 745,
+     "md_full": 4202,
+     "md_200": 2588,
+     "md_compacted": 3281
+    },
+    "recall_tokens": 469,
+    "questions": 5,
+    "md_lines": 328
+   },
+   {
+    "session": 42,
+    "start_tokens": {
+     "leviathan": 745,
+     "md_full": 4310,
+     "md_200": 2588,
+     "md_compacted": 3324
+    },
+    "recall_tokens": 788,
+    "questions": 5,
+    "md_lines": 336
+   },
+   {
+    "session": 43,
+    "start_tokens": {
+     "leviathan": 749,
+     "md_full": 4411,
+     "md_200": 2588,
+     "md_compacted": 3413
+    },
+    "recall_tokens": 735,
+    "questions": 5,
+    "md_lines": 344
+   },
+   {
+    "session": 44,
+    "start_tokens": {
+     "leviathan": 749,
+     "md_full": 4521,
+     "md_200": 2588,
+     "md_compacted": 3496
+    },
+    "recall_tokens": 472,
+    "questions": 5,
+    "md_lines": 352
+   },
+   {
+    "session": 45,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 4629,
+     "md_200": 2588,
+     "md_compacted": 3553
+    },
+    "recall_tokens": 465,
+    "questions": 5,
+    "md_lines": 360
+   },
+   {
+    "session": 46,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 4731,
+     "md_200": 2588,
+     "md_compacted": 3639
+    },
+    "recall_tokens": 793,
+    "questions": 5,
+    "md_lines": 368
+   },
+   {
+    "session": 47,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 4850,
+     "md_200": 2588,
+     "md_compacted": 3676
+    },
+    "recall_tokens": 715,
+    "questions": 5,
+    "md_lines": 376
+   },
+   {
+    "session": 48,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 4965,
+     "md_200": 2588,
+     "md_compacted": 3727
+    },
+    "recall_tokens": 892,
+    "questions": 5,
+    "md_lines": 384
+   },
+   {
+    "session": 49,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 5074,
+     "md_200": 2588,
+     "md_compacted": 3773
+    },
+    "recall_tokens": 678,
+    "questions": 5,
+    "md_lines": 392
+   },
+   {
+    "session": 50,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 5188,
+     "md_200": 2588,
+     "md_compacted": 3809
+    },
+    "recall_tokens": 473,
+    "questions": 5,
+    "md_lines": 400
+   },
+   {
+    "session": 51,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 5299,
+     "md_200": 2588,
+     "md_compacted": 3878
+    },
+    "recall_tokens": 627,
+    "questions": 5,
+    "md_lines": 408
+   },
+   {
+    "session": 52,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 5398,
+     "md_200": 2588,
+     "md_compacted": 3951
+    },
+    "recall_tokens": 993,
+    "questions": 5,
+    "md_lines": 416
+   },
+   {
+    "session": 53,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 5510,
+     "md_200": 2588,
+     "md_compacted": 4003
+    },
+    "recall_tokens": 476,
+    "questions": 5,
+    "md_lines": 424
+   },
+   {
+    "session": 54,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 5616,
+     "md_200": 2588,
+     "md_compacted": 4053
+    },
+    "recall_tokens": 722,
+    "questions": 5,
+    "md_lines": 432
+   },
+   {
+    "session": 55,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 5727,
+     "md_200": 2588,
+     "md_compacted": 4123
+    },
+    "recall_tokens": 673,
+    "questions": 5,
+    "md_lines": 440
+   },
+   {
+    "session": 56,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 5838,
+     "md_200": 2588,
+     "md_compacted": 4164
+    },
+    "recall_tokens": 706,
+    "questions": 5,
+    "md_lines": 448
+   },
+   {
+    "session": 57,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 5946,
+     "md_200": 2588,
+     "md_compacted": 4230
+    },
+    "recall_tokens": 734,
+    "questions": 5,
+    "md_lines": 456
+   },
+   {
+    "session": 58,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 6054,
+     "md_200": 2588,
+     "md_compacted": 4301
+    },
+    "recall_tokens": 759,
+    "questions": 5,
+    "md_lines": 464
+   },
+   {
+    "session": 59,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 6159,
+     "md_200": 2588,
+     "md_compacted": 4377
+    },
+    "recall_tokens": 785,
+    "questions": 5,
+    "md_lines": 472
+   },
+   {
+    "session": 60,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 6266,
+     "md_200": 2588,
+     "md_compacted": 4444
+    },
+    "recall_tokens": 689,
+    "questions": 5,
+    "md_lines": 480
+   },
+   {
+    "session": 61,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 6374,
+     "md_200": 2588,
+     "md_compacted": 4482
+    },
+    "recall_tokens": 483,
+    "questions": 5,
+    "md_lines": 488
+   },
+   {
+    "session": 62,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 6476,
+     "md_200": 2588,
+     "md_compacted": 4541
+    },
+    "recall_tokens": 761,
+    "questions": 5,
+    "md_lines": 496
+   },
+   {
+    "session": 63,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 6586,
+     "md_200": 2588,
+     "md_compacted": 4613
+    },
+    "recall_tokens": 1026,
+    "questions": 5,
+    "md_lines": 504
+   },
+   {
+    "session": 64,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 6691,
+     "md_200": 2588,
+     "md_compacted": 4690
+    },
+    "recall_tokens": 638,
+    "questions": 5,
+    "md_lines": 512
+   },
+   {
+    "session": 65,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 6808,
+     "md_200": 2588,
+     "md_compacted": 4747
+    },
+    "recall_tokens": 951,
+    "questions": 5,
+    "md_lines": 520
+   },
+   {
+    "session": 66,
+    "start_tokens": {
+     "leviathan": 710,
+     "md_full": 6906,
+     "md_200": 2588,
+     "md_compacted": 4816
+    },
+    "recall_tokens": 609,
+    "questions": 5,
+    "md_lines": 528
+   },
+   {
+    "session": 67,
+    "start_tokens": {
+     "leviathan": 748,
+     "md_full": 7019,
+     "md_200": 2588,
+     "md_compacted": 4875
+    },
+    "recall_tokens": 473,
+    "questions": 5,
+    "md_lines": 536
+   },
+   {
+    "session": 68,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 7132,
+     "md_200": 2588,
+     "md_compacted": 4915
+    },
+    "recall_tokens": 892,
+    "questions": 5,
+    "md_lines": 544
+   },
+   {
+    "session": 69,
+    "start_tokens": {
+     "leviathan": 712,
+     "md_full": 7254,
+     "md_200": 2588,
+     "md_compacted": 4950
+    },
+    "recall_tokens": 722,
+    "questions": 5,
+    "md_lines": 552
+   },
+   {
+    "session": 70,
+    "start_tokens": {
+     "leviathan": 712,
+     "md_full": 7367,
+     "md_200": 2588,
+     "md_compacted": 4973
+    },
+    "recall_tokens": 613,
+    "questions": 5,
+    "md_lines": 560
+   },
+   {
+    "session": 71,
+    "start_tokens": {
+     "leviathan": 712,
+     "md_full": 7479,
+     "md_200": 2588,
+     "md_compacted": 5011
+    },
+    "recall_tokens": 740,
+    "questions": 5,
+    "md_lines": 568
+   },
+   {
+    "session": 72,
+    "start_tokens": {
+     "leviathan": 712,
+     "md_full": 7593,
+     "md_200": 2588,
+     "md_compacted": 5044
+    },
+    "recall_tokens": 469,
+    "questions": 5,
+    "md_lines": 576
+   },
+   {
+    "session": 73,
+    "start_tokens": {
+     "leviathan": 743,
+     "md_full": 7702,
+     "md_200": 2588,
+     "md_compacted": 5099
+    },
+    "recall_tokens": 1219,
+    "questions": 5,
+    "md_lines": 584
+   },
+   {
+    "session": 74,
+    "start_tokens": {
+     "leviathan": 743,
+     "md_full": 7817,
+     "md_200": 2588,
+     "md_compacted": 5117
+    },
+    "recall_tokens": 609,
+    "questions": 5,
+    "md_lines": 592
+   },
+   {
+    "session": 75,
+    "start_tokens": {
+     "leviathan": 743,
+     "md_full": 7924,
+     "md_200": 2588,
+     "md_compacted": 5196
+    },
+    "recall_tokens": 746,
+    "questions": 5,
+    "md_lines": 600
+   },
+   {
+    "session": 76,
+    "start_tokens": {
+     "leviathan": 743,
+     "md_full": 8043,
+     "md_200": 2588,
+     "md_compacted": 5225
+    },
+    "recall_tokens": 629,
+    "questions": 5,
+    "md_lines": 608
+   },
+   {
+    "session": 77,
+    "start_tokens": {
+     "leviathan": 743,
+     "md_full": 8154,
+     "md_200": 2588,
+     "md_compacted": 5276
+    },
+    "recall_tokens": 797,
+    "questions": 5,
+    "md_lines": 616
+   },
+   {
+    "session": 78,
+    "start_tokens": {
+     "leviathan": 732,
+     "md_full": 8268,
+     "md_200": 2588,
+     "md_compacted": 5322
+    },
+    "recall_tokens": 487,
+    "questions": 5,
+    "md_lines": 624
+   },
+   {
+    "session": 79,
+    "start_tokens": {
+     "leviathan": 732,
+     "md_full": 8375,
+     "md_200": 2588,
+     "md_compacted": 5375
+    },
+    "recall_tokens": 1070,
+    "questions": 5,
+    "md_lines": 632
+   },
+   {
+    "session": 80,
+    "start_tokens": {
+     "leviathan": 732,
+     "md_full": 8486,
+     "md_200": 2588,
+     "md_compacted": 5411
+    },
+    "recall_tokens": 1058,
+    "questions": 5,
+    "md_lines": 640
+   },
+   {
+    "session": 81,
+    "start_tokens": {
+     "leviathan": 732,
+     "md_full": 8602,
+     "md_200": 2588,
+     "md_compacted": 5460
+    },
+    "recall_tokens": 668,
+    "questions": 5,
+    "md_lines": 648
+   },
+   {
+    "session": 82,
+    "start_tokens": {
+     "leviathan": 732,
+     "md_full": 8713,
+     "md_200": 2588,
+     "md_compacted": 5499
+    },
+    "recall_tokens": 790,
+    "questions": 5,
+    "md_lines": 656
+   },
+   {
+    "session": 83,
+    "start_tokens": {
+     "leviathan": 738,
+     "md_full": 8820,
+     "md_200": 2588,
+     "md_compacted": 5551
+    },
+    "recall_tokens": 555,
+    "questions": 5,
+    "md_lines": 664
+   },
+   {
+    "session": 84,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 8932,
+     "md_200": 2588,
+     "md_compacted": 5634
+    },
+    "recall_tokens": 594,
+    "questions": 5,
+    "md_lines": 672
+   },
+   {
+    "session": 85,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 9047,
+     "md_200": 2588,
+     "md_compacted": 5677
+    },
+    "recall_tokens": 518,
+    "questions": 5,
+    "md_lines": 680
+   },
+   {
+    "session": 86,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 9160,
+     "md_200": 2588,
+     "md_compacted": 5727
+    },
+    "recall_tokens": 468,
+    "questions": 5,
+    "md_lines": 688
+   },
+   {
+    "session": 87,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 9273,
+     "md_200": 2588,
+     "md_compacted": 5771
+    },
+    "recall_tokens": 485,
+    "questions": 5,
+    "md_lines": 696
+   },
+   {
+    "session": 88,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 9384,
+     "md_200": 2588,
+     "md_compacted": 5840
+    },
+    "recall_tokens": 768,
+    "questions": 5,
+    "md_lines": 704
+   },
+   {
+    "session": 89,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 9492,
+     "md_200": 2588,
+     "md_compacted": 5893
+    },
+    "recall_tokens": 479,
+    "questions": 5,
+    "md_lines": 712
+   },
+   {
+    "session": 90,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 9614,
+     "md_200": 2588,
+     "md_compacted": 5908
+    },
+    "recall_tokens": 1253,
+    "questions": 5,
+    "md_lines": 720
+   },
+   {
+    "session": 91,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 9721,
+     "md_200": 2588,
+     "md_compacted": 5937
+    },
+    "recall_tokens": 934,
+    "questions": 5,
+    "md_lines": 728
+   },
+   {
+    "session": 92,
+    "start_tokens": {
+     "leviathan": 742,
+     "md_full": 9843,
+     "md_200": 2588,
+     "md_compacted": 5980
+    },
+    "recall_tokens": 1002,
+    "questions": 5,
+    "md_lines": 736
+   },
+   {
+    "session": 93,
+    "start_tokens": {
+     "leviathan": 740,
+     "md_full": 9956,
+     "md_200": 2588,
+     "md_compacted": 6021
+    },
+    "recall_tokens": 942,
+    "questions": 5,
+    "md_lines": 744
+   },
+   {
+    "session": 94,
+    "start_tokens": {
+     "leviathan": 740,
+     "md_full": 10070,
+     "md_200": 2588,
+     "md_compacted": 6042
+    },
+    "recall_tokens": 793,
+    "questions": 5,
+    "md_lines": 752
+   },
+   {
+    "session": 95,
+    "start_tokens": {
+     "leviathan": 740,
+     "md_full": 10187,
+     "md_200": 2588,
+     "md_compacted": 6060
+    },
+    "recall_tokens": 986,
+    "questions": 5,
+    "md_lines": 760
+   },
+   {
+    "session": 96,
+    "start_tokens": {
+     "leviathan": 740,
+     "md_full": 10300,
+     "md_200": 2588,
+     "md_compacted": 6117
+    },
+    "recall_tokens": 989,
+    "questions": 5,
+    "md_lines": 768
+   },
+   {
+    "session": 97,
+    "start_tokens": {
+     "leviathan": 740,
+     "md_full": 10416,
+     "md_200": 2588,
+     "md_compacted": 6147
+    },
+    "recall_tokens": 814,
+    "questions": 5,
+    "md_lines": 776
+   },
+   {
+    "session": 98,
+    "start_tokens": {
+     "leviathan": 740,
+     "md_full": 10542,
+     "md_200": 2588,
+     "md_compacted": 6150
+    },
+    "recall_tokens": 946,
+    "questions": 5,
+    "md_lines": 784
+   },
+   {
+    "session": 99,
+    "start_tokens": {
+     "leviathan": 734,
+     "md_full": 10658,
+     "md_200": 2588,
+     "md_compacted": 6177
+    },
+    "recall_tokens": 1181,
+    "questions": 5,
+    "md_lines": 792
+   },
+   {
+    "session": 100,
+    "start_tokens": {
+     "leviathan": 734,
+     "md_full": 10770,
+     "md_200": 2588,
+     "md_compacted": 6230
+    },
+    "recall_tokens": 468,
+    "questions": 5,
+    "md_lines": 800
+   },
+   {
+    "session": 101,
+    "start_tokens": {
+     "leviathan": 734,
+     "md_full": 10881,
+     "md_200": 2588,
+     "md_compacted": 6281
+    },
+    "recall_tokens": 964,
+    "questions": 5,
+    "md_lines": 808
+   },
+   {
+    "session": 102,
+    "start_tokens": {
+     "leviathan": 734,
+     "md_full": 11001,
+     "md_200": 2588,
+     "md_compacted": 6324
+    },
+    "recall_tokens": 480,
+    "questions": 5,
+    "md_lines": 816
+   },
+   {
+    "session": 103,
+    "start_tokens": {
+     "leviathan": 734,
+     "md_full": 11110,
+     "md_200": 2588,
+     "md_compacted": 6376
+    },
+    "recall_tokens": 478,
+    "questions": 5,
+    "md_lines": 824
+   },
+   {
+    "session": 104,
+    "start_tokens": {
+     "leviathan": 734,
+     "md_full": 11221,
+     "md_200": 2588,
+     "md_compacted": 6403
+    },
+    "recall_tokens": 481,
+    "questions": 5,
+    "md_lines": 832
+   },
+   {
+    "session": 105,
+    "start_tokens": {
+     "leviathan": 734,
+     "md_full": 11330,
+     "md_200": 2588,
+     "md_compacted": 6430
+    },
+    "recall_tokens": 1060,
+    "questions": 5,
+    "md_lines": 840
+   },
+   {
+    "session": 106,
+    "start_tokens": {
+     "leviathan": 734,
+     "md_full": 11439,
+     "md_200": 2588,
+     "md_compacted": 6465
+    },
+    "recall_tokens": 1046,
+    "questions": 5,
+    "md_lines": 848
+   },
+   {
+    "session": 107,
+    "start_tokens": {
+     "leviathan": 734,
+     "md_full": 11554,
+     "md_200": 2588,
+     "md_compacted": 6497
+    },
+    "recall_tokens": 483,
+    "questions": 5,
+    "md_lines": 856
+   },
+   {
+    "session": 108,
+    "start_tokens": {
+     "leviathan": 734,
+     "md_full": 11667,
+     "md_200": 2588,
+     "md_compacted": 6538
+    },
+    "recall_tokens": 480,
+    "questions": 5,
+    "md_lines": 864
+   },
+   {
+    "session": 109,
+    "start_tokens": {
+     "leviathan": 738,
+     "md_full": 11771,
+     "md_200": 2588,
+     "md_compacted": 6603
+    },
+    "recall_tokens": 477,
+    "questions": 5,
+    "md_lines": 872
+   },
+   {
+    "session": 110,
+    "start_tokens": {
+     "leviathan": 738,
+     "md_full": 11880,
+     "md_200": 2588,
+     "md_compacted": 6641
+    },
+    "recall_tokens": 913,
+    "questions": 5,
+    "md_lines": 880
+   },
+   {
+    "session": 111,
+    "start_tokens": {
+     "leviathan": 738,
+     "md_full": 11991,
+     "md_200": 2588,
+     "md_compacted": 6684
+    },
+    "recall_tokens": 483,
+    "questions": 5,
+    "md_lines": 888
+   },
+   {
+    "session": 112,
+    "start_tokens": {
+     "leviathan": 738,
+     "md_full": 12102,
+     "md_200": 2588,
+     "md_compacted": 6707
+    },
+    "recall_tokens": 721,
+    "questions": 5,
+    "md_lines": 896
+   },
+   {
+    "session": 113,
+    "start_tokens": {
+     "leviathan": 738,
+     "md_full": 12218,
+     "md_200": 2588,
+     "md_compacted": 6764
+    },
+    "recall_tokens": 1130,
+    "questions": 5,
+    "md_lines": 904
+   },
+   {
+    "session": 114,
+    "start_tokens": {
+     "leviathan": 738,
+     "md_full": 12333,
+     "md_200": 2588,
+     "md_compacted": 6803
+    },
+    "recall_tokens": 991,
+    "questions": 5,
+    "md_lines": 912
+   },
+   {
+    "session": 115,
+    "start_tokens": {
+     "leviathan": 738,
+     "md_full": 12455,
+     "md_200": 2588,
+     "md_compacted": 6833
+    },
+    "recall_tokens": 1540,
+    "questions": 5,
+    "md_lines": 920
+   },
+   {
+    "session": 116,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 12566,
+     "md_200": 2588,
+     "md_compacted": 6857
+    },
+    "recall_tokens": 777,
+    "questions": 5,
+    "md_lines": 928
+   },
+   {
+    "session": 117,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 12682,
+     "md_200": 2588,
+     "md_compacted": 6901
+    },
+    "recall_tokens": 800,
+    "questions": 5,
+    "md_lines": 936
+   },
+   {
+    "session": 118,
+    "start_tokens": {
+     "leviathan": 732,
+     "md_full": 12793,
+     "md_200": 2588,
+     "md_compacted": 6954
+    },
+    "recall_tokens": 686,
+    "questions": 5,
+    "md_lines": 944
+   },
+   {
+    "session": 119,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 12904,
+     "md_200": 2588,
+     "md_compacted": 7009
+    },
+    "recall_tokens": 884,
+    "questions": 5,
+    "md_lines": 952
+   },
+   {
+    "session": 120,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 13020,
+     "md_200": 2588,
+     "md_compacted": 7051
+    },
+    "recall_tokens": 1192,
+    "questions": 5,
+    "md_lines": 960
+   },
+   {
+    "session": 121,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 13138,
+     "md_200": 2588,
+     "md_compacted": 7107
+    },
+    "recall_tokens": 831,
+    "questions": 5,
+    "md_lines": 968
+   },
+   {
+    "session": 122,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 13246,
+     "md_200": 2588,
+     "md_compacted": 7161
+    },
+    "recall_tokens": 486,
+    "questions": 5,
+    "md_lines": 976
+   },
+   {
+    "session": 123,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 13367,
+     "md_200": 2588,
+     "md_compacted": 7180
+    },
+    "recall_tokens": 920,
+    "questions": 5,
+    "md_lines": 984
+   },
+   {
+    "session": 124,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 13476,
+     "md_200": 2588,
+     "md_compacted": 7231
+    },
+    "recall_tokens": 520,
+    "questions": 5,
+    "md_lines": 992
+   },
+   {
+    "session": 125,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 13594,
+     "md_200": 2588,
+     "md_compacted": 7246
+    },
+    "recall_tokens": 1284,
+    "questions": 5,
+    "md_lines": 1000
+   },
+   {
+    "session": 126,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 13704,
+     "md_200": 2588,
+     "md_compacted": 7292
+    },
+    "recall_tokens": 852,
+    "questions": 5,
+    "md_lines": 1008
+   },
+   {
+    "session": 127,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 13826,
+     "md_200": 2588,
+     "md_compacted": 7326
+    },
+    "recall_tokens": 774,
+    "questions": 5,
+    "md_lines": 1016
+   },
+   {
+    "session": 128,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 13933,
+     "md_200": 2588,
+     "md_compacted": 7375
+    },
+    "recall_tokens": 497,
+    "questions": 5,
+    "md_lines": 1024
+   },
+   {
+    "session": 129,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 14048,
+     "md_200": 2588,
+     "md_compacted": 7388
+    },
+    "recall_tokens": 1288,
+    "questions": 5,
+    "md_lines": 1032
+   },
+   {
+    "session": 130,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 14168,
+     "md_200": 2588,
+     "md_compacted": 7405
+    },
+    "recall_tokens": 489,
+    "questions": 5,
+    "md_lines": 1040
+   },
+   {
+    "session": 131,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 14284,
+     "md_200": 2588,
+     "md_compacted": 7428
+    },
+    "recall_tokens": 1063,
+    "questions": 5,
+    "md_lines": 1048
+   },
+   {
+    "session": 132,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 14400,
+     "md_200": 2588,
+     "md_compacted": 7484
+    },
+    "recall_tokens": 483,
+    "questions": 5,
+    "md_lines": 1056
+   },
+   {
+    "session": 133,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 14506,
+     "md_200": 2588,
+     "md_compacted": 7534
+    },
+    "recall_tokens": 476,
+    "questions": 5,
+    "md_lines": 1064
+   },
+   {
+    "session": 134,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 14621,
+     "md_200": 2588,
+     "md_compacted": 7552
+    },
+    "recall_tokens": 1059,
+    "questions": 5,
+    "md_lines": 1072
+   },
+   {
+    "session": 135,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 14736,
+     "md_200": 2588,
+     "md_compacted": 7578
+    },
+    "recall_tokens": 721,
+    "questions": 5,
+    "md_lines": 1080
+   },
+   {
+    "session": 136,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 14852,
+     "md_200": 2588,
+     "md_compacted": 7621
+    },
+    "recall_tokens": 1361,
+    "questions": 5,
+    "md_lines": 1088
+   },
+   {
+    "session": 137,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 14960,
+     "md_200": 2588,
+     "md_compacted": 7670
+    },
+    "recall_tokens": 1222,
+    "questions": 5,
+    "md_lines": 1096
+   },
+   {
+    "session": 138,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 15076,
+     "md_200": 2588,
+     "md_compacted": 7685
+    },
+    "recall_tokens": 1339,
+    "questions": 5,
+    "md_lines": 1104
+   },
+   {
+    "session": 139,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 15181,
+     "md_200": 2588,
+     "md_compacted": 7747
+    },
+    "recall_tokens": 750,
+    "questions": 5,
+    "md_lines": 1112
+   },
+   {
+    "session": 140,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 15301,
+     "md_200": 2588,
+     "md_compacted": 7767
+    },
+    "recall_tokens": 479,
+    "questions": 5,
+    "md_lines": 1120
+   },
+   {
+    "session": 141,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 15411,
+     "md_200": 2588,
+     "md_compacted": 7811
+    },
+    "recall_tokens": 673,
+    "questions": 5,
+    "md_lines": 1128
+   },
+   {
+    "session": 142,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 15517,
+     "md_200": 2588,
+     "md_compacted": 7848
+    },
+    "recall_tokens": 1104,
+    "questions": 5,
+    "md_lines": 1136
+   },
+   {
+    "session": 143,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 15626,
+     "md_200": 2588,
+     "md_compacted": 7901
+    },
+    "recall_tokens": 1167,
+    "questions": 5,
+    "md_lines": 1144
+   },
+   {
+    "session": 144,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 15736,
+     "md_200": 2588,
+     "md_compacted": 7954
+    },
+    "recall_tokens": 495,
+    "questions": 5,
+    "md_lines": 1152
+   },
+   {
+    "session": 145,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 15847,
+     "md_200": 2588,
+     "md_compacted": 8004
+    },
+    "recall_tokens": 1092,
+    "questions": 5,
+    "md_lines": 1160
+   },
+   {
+    "session": 146,
+    "start_tokens": {
+     "leviathan": 700,
+     "md_full": 15959,
+     "md_200": 2588,
+     "md_compacted": 8073
+    },
+    "recall_tokens": 480,
+    "questions": 5,
+    "md_lines": 1168
+   },
+   {
+    "session": 147,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 16073,
+     "md_200": 2588,
+     "md_compacted": 8118
+    },
+    "recall_tokens": 524,
+    "questions": 5,
+    "md_lines": 1176
+   },
+   {
+    "session": 148,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 16184,
+     "md_200": 2588,
+     "md_compacted": 8151
+    },
+    "recall_tokens": 1261,
+    "questions": 5,
+    "md_lines": 1184
+   },
+   {
+    "session": 149,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 16296,
+     "md_200": 2588,
+     "md_compacted": 8194
+    },
+    "recall_tokens": 1092,
+    "questions": 5,
+    "md_lines": 1192
+   },
+   {
+    "session": 150,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 16406,
+     "md_200": 2588,
+     "md_compacted": 8210
+    },
+    "recall_tokens": 982,
+    "questions": 5,
+    "md_lines": 1200
+   },
+   {
+    "session": 151,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 16515,
+     "md_200": 2588,
+     "md_compacted": 8246
+    },
+    "recall_tokens": 765,
+    "questions": 5,
+    "md_lines": 1208
+   },
+   {
+    "session": 152,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 16631,
+     "md_200": 2588,
+     "md_compacted": 8286
+    },
+    "recall_tokens": 1223,
+    "questions": 5,
+    "md_lines": 1216
+   },
+   {
+    "session": 153,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 16742,
+     "md_200": 2588,
+     "md_compacted": 8324
+    },
+    "recall_tokens": 481,
+    "questions": 5,
+    "md_lines": 1224
+   },
+   {
+    "session": 154,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 16852,
+     "md_200": 2588,
+     "md_compacted": 8376
+    },
+    "recall_tokens": 830,
+    "questions": 5,
+    "md_lines": 1232
+   },
+   {
+    "session": 155,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 16959,
+     "md_200": 2588,
+     "md_compacted": 8425
+    },
+    "recall_tokens": 1644,
+    "questions": 5,
+    "md_lines": 1240
+   },
+   {
+    "session": 156,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 17085,
+     "md_200": 2588,
+     "md_compacted": 8476
+    },
+    "recall_tokens": 928,
+    "questions": 5,
+    "md_lines": 1248
+   },
+   {
+    "session": 157,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 17198,
+     "md_200": 2588,
+     "md_compacted": 8488
+    },
+    "recall_tokens": 486,
+    "questions": 5,
+    "md_lines": 1256
+   },
+   {
+    "session": 158,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 17311,
+     "md_200": 2588,
+     "md_compacted": 8538
+    },
+    "recall_tokens": 1078,
+    "questions": 5,
+    "md_lines": 1264
+   },
+   {
+    "session": 159,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 17433,
+     "md_200": 2588,
+     "md_compacted": 8582
+    },
+    "recall_tokens": 466,
+    "questions": 5,
+    "md_lines": 1272
+   },
+   {
+    "session": 160,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 17540,
+     "md_200": 2588,
+     "md_compacted": 8647
+    },
+    "recall_tokens": 874,
+    "questions": 5,
+    "md_lines": 1280
+   },
+   {
+    "session": 161,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 17655,
+     "md_200": 2588,
+     "md_compacted": 8661
+    },
+    "recall_tokens": 481,
+    "questions": 5,
+    "md_lines": 1288
+   },
+   {
+    "session": 162,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 17768,
+     "md_200": 2588,
+     "md_compacted": 8688
+    },
+    "recall_tokens": 1196,
+    "questions": 5,
+    "md_lines": 1296
+   },
+   {
+    "session": 163,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 17880,
+     "md_200": 2588,
+     "md_compacted": 8717
+    },
+    "recall_tokens": 513,
+    "questions": 5,
+    "md_lines": 1304
+   },
+   {
+    "session": 164,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 17999,
+     "md_200": 2588,
+     "md_compacted": 8717
+    },
+    "recall_tokens": 1254,
+    "questions": 5,
+    "md_lines": 1312
+   },
+   {
+    "session": 165,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 18105,
+     "md_200": 2588,
+     "md_compacted": 8765
+    },
+    "recall_tokens": 1383,
+    "questions": 5,
+    "md_lines": 1320
+   },
+   {
+    "session": 166,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 18220,
+     "md_200": 2588,
+     "md_compacted": 8767
+    },
+    "recall_tokens": 833,
+    "questions": 5,
+    "md_lines": 1328
+   },
+   {
+    "session": 167,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 18331,
+     "md_200": 2588,
+     "md_compacted": 8822
+    },
+    "recall_tokens": 851,
+    "questions": 5,
+    "md_lines": 1336
+   },
+   {
+    "session": 168,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 18442,
+     "md_200": 2588,
+     "md_compacted": 8846
+    },
+    "recall_tokens": 491,
+    "questions": 5,
+    "md_lines": 1344
+   },
+   {
+    "session": 169,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 18558,
+     "md_200": 2588,
+     "md_compacted": 8876
+    },
+    "recall_tokens": 930,
+    "questions": 5,
+    "md_lines": 1352
+   },
+   {
+    "session": 170,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 18677,
+     "md_200": 2588,
+     "md_compacted": 8922
+    },
+    "recall_tokens": 1357,
+    "questions": 5,
+    "md_lines": 1360
+   },
+   {
+    "session": 171,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 18794,
+     "md_200": 2588,
+     "md_compacted": 8951
+    },
+    "recall_tokens": 1564,
+    "questions": 5,
+    "md_lines": 1368
+   },
+   {
+    "session": 172,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 18909,
+     "md_200": 2588,
+     "md_compacted": 8972
+    },
+    "recall_tokens": 1287,
+    "questions": 5,
+    "md_lines": 1376
+   },
+   {
+    "session": 173,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 19021,
+     "md_200": 2588,
+     "md_compacted": 8997
+    },
+    "recall_tokens": 482,
+    "questions": 5,
+    "md_lines": 1384
+   },
+   {
+    "session": 174,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 19129,
+     "md_200": 2588,
+     "md_compacted": 9032
+    },
+    "recall_tokens": 476,
+    "questions": 5,
+    "md_lines": 1392
+   },
+   {
+    "session": 175,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 19240,
+     "md_200": 2588,
+     "md_compacted": 9069
+    },
+    "recall_tokens": 531,
+    "questions": 5,
+    "md_lines": 1400
+   },
+   {
+    "session": 176,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 19361,
+     "md_200": 2588,
+     "md_compacted": 9101
+    },
+    "recall_tokens": 479,
+    "questions": 5,
+    "md_lines": 1408
+   },
+   {
+    "session": 177,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 19481,
+     "md_200": 2588,
+     "md_compacted": 9127
+    },
+    "recall_tokens": 1393,
+    "questions": 5,
+    "md_lines": 1416
+   },
+   {
+    "session": 178,
+    "start_tokens": {
+     "leviathan": 692,
+     "md_full": 19591,
+     "md_200": 2588,
+     "md_compacted": 9161
+    },
+    "recall_tokens": 1311,
+    "questions": 5,
+    "md_lines": 1424
+   },
+   {
+    "session": 179,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 19700,
+     "md_200": 2588,
+     "md_compacted": 9196
+    },
+    "recall_tokens": 480,
+    "questions": 5,
+    "md_lines": 1432
+   },
+   {
+    "session": 180,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 19819,
+     "md_200": 2588,
+     "md_compacted": 9213
+    },
+    "recall_tokens": 1951,
+    "questions": 5,
+    "md_lines": 1440
+   },
+   {
+    "session": 181,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 19934,
+     "md_200": 2588,
+     "md_compacted": 9242
+    },
+    "recall_tokens": 878,
+    "questions": 5,
+    "md_lines": 1448
+   },
+   {
+    "session": 182,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 20046,
+     "md_200": 2588,
+     "md_compacted": 9256
+    },
+    "recall_tokens": 1200,
+    "questions": 5,
+    "md_lines": 1456
+   },
+   {
+    "session": 183,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 20161,
+     "md_200": 2588,
+     "md_compacted": 9282
+    },
+    "recall_tokens": 971,
+    "questions": 5,
+    "md_lines": 1464
+   },
+   {
+    "session": 184,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 20275,
+     "md_200": 2588,
+     "md_compacted": 9334
+    },
+    "recall_tokens": 1592,
+    "questions": 5,
+    "md_lines": 1472
+   },
+   {
+    "session": 185,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 20380,
+     "md_200": 2588,
+     "md_compacted": 9389
+    },
+    "recall_tokens": 1133,
+    "questions": 5,
+    "md_lines": 1480
+   },
+   {
+    "session": 186,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 20493,
+     "md_200": 2588,
+     "md_compacted": 9402
+    },
+    "recall_tokens": 647,
+    "questions": 5,
+    "md_lines": 1488
+   },
+   {
+    "session": 187,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 20607,
+     "md_200": 2588,
+     "md_compacted": 9441
+    },
+    "recall_tokens": 1005,
+    "questions": 5,
+    "md_lines": 1496
+   },
+   {
+    "session": 188,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 20716,
+     "md_200": 2588,
+     "md_compacted": 9494
+    },
+    "recall_tokens": 990,
+    "questions": 5,
+    "md_lines": 1504
+   },
+   {
+    "session": 189,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 20833,
+     "md_200": 2588,
+     "md_compacted": 9504
+    },
+    "recall_tokens": 485,
+    "questions": 5,
+    "md_lines": 1512
+   },
+   {
+    "session": 190,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 20936,
+     "md_200": 2588,
+     "md_compacted": 9554
+    },
+    "recall_tokens": 471,
+    "questions": 5,
+    "md_lines": 1520
+   },
+   {
+    "session": 191,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 21037,
+     "md_200": 2588,
+     "md_compacted": 9615
+    },
+    "recall_tokens": 947,
+    "questions": 5,
+    "md_lines": 1528
+   },
+   {
+    "session": 192,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 21146,
+     "md_200": 2588,
+     "md_compacted": 9679
+    },
+    "recall_tokens": 481,
+    "questions": 5,
+    "md_lines": 1536
+   },
+   {
+    "session": 193,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 21261,
+     "md_200": 2588,
+     "md_compacted": 9716
+    },
+    "recall_tokens": 797,
+    "questions": 5,
+    "md_lines": 1544
+   },
+   {
+    "session": 194,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 21370,
+     "md_200": 2588,
+     "md_compacted": 9753
+    },
+    "recall_tokens": 827,
+    "questions": 5,
+    "md_lines": 1552
+   },
+   {
+    "session": 195,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 21482,
+     "md_200": 2588,
+     "md_compacted": 9784
+    },
+    "recall_tokens": 1031,
+    "questions": 5,
+    "md_lines": 1560
+   },
+   {
+    "session": 196,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 21592,
+     "md_200": 2588,
+     "md_compacted": 9820
+    },
+    "recall_tokens": 1284,
+    "questions": 5,
+    "md_lines": 1568
+   },
+   {
+    "session": 197,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 21713,
+     "md_200": 2588,
+     "md_compacted": 9823
+    },
+    "recall_tokens": 1094,
+    "questions": 5,
+    "md_lines": 1576
+   },
+   {
+    "session": 198,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 21823,
+     "md_200": 2588,
+     "md_compacted": 9846
+    },
+    "recall_tokens": 846,
+    "questions": 5,
+    "md_lines": 1584
+   },
+   {
+    "session": 199,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 21938,
+     "md_200": 2588,
+     "md_compacted": 9855
+    },
+    "recall_tokens": 474,
+    "questions": 5,
+    "md_lines": 1592
+   },
+   {
+    "session": 200,
+    "start_tokens": {
+     "leviathan": 695,
+     "md_full": 22053,
+     "md_200": 2588,
+     "md_compacted": 9871
+    },
+    "recall_tokens": 1364,
+    "questions": 5,
+    "md_lines": 1600
+   },
+   {
+    "session": 201,
+    "start_tokens": {
+     "leviathan": 699,
+     "md_full": 22167,
+     "md_200": 2588,
+     "md_compacted": 9884
+    },
+    "recall_tokens": 1445,
+    "questions": 5,
+    "md_lines": 1608
+   },
+   {
+    "session": 202,
+    "start_tokens": {
+     "leviathan": 699,
+     "md_full": 22289,
+     "md_200": 2588,
+     "md_compacted": 9886
+    },
+    "recall_tokens": 1467,
+    "questions": 5,
+    "md_lines": 1616
+   },
+   {
+    "session": 203,
+    "start_tokens": {
+     "leviathan": 699,
+     "md_full": 22405,
+     "md_200": 2588,
+     "md_compacted": 9931
+    },
+    "recall_tokens": 1166,
+    "questions": 5,
+    "md_lines": 1624
+   },
+   {
+    "session": 204,
+    "start_tokens": {
+     "leviathan": 699,
+     "md_full": 22519,
+     "md_200": 2588,
+     "md_compacted": 9943
+    },
+    "recall_tokens": 1506,
+    "questions": 5,
+    "md_lines": 1632
+   },
+   {
+    "session": 205,
+    "start_tokens": {
+     "leviathan": 699,
+     "md_full": 22635,
+     "md_200": 2588,
+     "md_compacted": 9971
+    },
+    "recall_tokens": 851,
+    "questions": 5,
+    "md_lines": 1640
+   },
+   {
+    "session": 206,
+    "start_tokens": {
+     "leviathan": 699,
+     "md_full": 22750,
+     "md_200": 2588,
+     "md_compacted": 9984
+    },
+    "recall_tokens": 484,
+    "questions": 5,
+    "md_lines": 1648
+   },
+   {
+    "session": 207,
+    "start_tokens": {
+     "leviathan": 699,
+     "md_full": 22875,
+     "md_200": 2588,
+     "md_compacted": 9998
+    },
+    "recall_tokens": 1083,
+    "questions": 5,
+    "md_lines": 1656
+   },
+   {
+    "session": 208,
+    "start_tokens": {
+     "leviathan": 699,
+     "md_full": 22989,
+     "md_200": 2588,
+     "md_compacted": 10036
+    },
+    "recall_tokens": 486,
+    "questions": 5,
+    "md_lines": 1664
+   },
+   {
+    "session": 209,
+    "start_tokens": {
+     "leviathan": 699,
+     "md_full": 23104,
+     "md_200": 2588,
+     "md_compacted": 10064
+    },
+    "recall_tokens": 2706,
+    "questions": 5,
+    "md_lines": 1672
+   },
+   {
+    "session": 210,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 23214,
+     "md_200": 2588,
+     "md_compacted": 10118
+    },
+    "recall_tokens": 476,
+    "questions": 5,
+    "md_lines": 1680
+   },
+   {
+    "session": 211,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 23325,
+     "md_200": 2588,
+     "md_compacted": 10157
+    },
+    "recall_tokens": 1034,
+    "questions": 5,
+    "md_lines": 1688
+   },
+   {
+    "session": 212,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 23442,
+     "md_200": 2588,
+     "md_compacted": 10211
+    },
+    "recall_tokens": 515,
+    "questions": 5,
+    "md_lines": 1696
+   },
+   {
+    "session": 213,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 23554,
+     "md_200": 2588,
+     "md_compacted": 10248
+    },
+    "recall_tokens": 827,
+    "questions": 5,
+    "md_lines": 1704
+   },
+   {
+    "session": 214,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 23663,
+     "md_200": 2588,
+     "md_compacted": 10273
+    },
+    "recall_tokens": 1521,
+    "questions": 5,
+    "md_lines": 1712
+   },
+   {
+    "session": 215,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 23778,
+     "md_200": 2588,
+     "md_compacted": 10313
+    },
+    "recall_tokens": 1366,
+    "questions": 5,
+    "md_lines": 1720
+   },
+   {
+    "session": 216,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 23890,
+     "md_200": 2588,
+     "md_compacted": 10354
+    },
+    "recall_tokens": 1676,
+    "questions": 5,
+    "md_lines": 1728
+   },
+   {
+    "session": 217,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 24003,
+     "md_200": 2588,
+     "md_compacted": 10392
+    },
+    "recall_tokens": 1309,
+    "questions": 5,
+    "md_lines": 1736
+   },
+   {
+    "session": 218,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 24113,
+     "md_200": 2588,
+     "md_compacted": 10417
+    },
+    "recall_tokens": 1043,
+    "questions": 5,
+    "md_lines": 1744
+   },
+   {
+    "session": 219,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 24223,
+     "md_200": 2588,
+     "md_compacted": 10453
+    },
+    "recall_tokens": 479,
+    "questions": 5,
+    "md_lines": 1752
+   },
+   {
+    "session": 220,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 24340,
+     "md_200": 2588,
+     "md_compacted": 10478
+    },
+    "recall_tokens": 1991,
+    "questions": 5,
+    "md_lines": 1760
+   },
+   {
+    "session": 221,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 24453,
+     "md_200": 2588,
+     "md_compacted": 10502
+    },
+    "recall_tokens": 860,
+    "questions": 5,
+    "md_lines": 1768
+   },
+   {
+    "session": 222,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 24555,
+     "md_200": 2588,
+     "md_compacted": 10542
+    },
+    "recall_tokens": 958,
+    "questions": 5,
+    "md_lines": 1776
+   },
+   {
+    "session": 223,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 24668,
+     "md_200": 2588,
+     "md_compacted": 10579
+    },
+    "recall_tokens": 1676,
+    "questions": 5,
+    "md_lines": 1784
+   },
+   {
+    "session": 224,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 24783,
+     "md_200": 2588,
+     "md_compacted": 10592
+    },
+    "recall_tokens": 1023,
+    "questions": 5,
+    "md_lines": 1792
+   },
+   {
+    "session": 225,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 24889,
+     "md_200": 2588,
+     "md_compacted": 10651
+    },
+    "recall_tokens": 886,
+    "questions": 5,
+    "md_lines": 1800
+   },
+   {
+    "session": 226,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 24997,
+     "md_200": 2588,
+     "md_compacted": 10677
+    },
+    "recall_tokens": 3114,
+    "questions": 5,
+    "md_lines": 1808
+   },
+   {
+    "session": 227,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 25107,
+     "md_200": 2588,
+     "md_compacted": 10714
+    },
+    "recall_tokens": 994,
+    "questions": 5,
+    "md_lines": 1816
+   },
+   {
+    "session": 228,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 25226,
+     "md_200": 2588,
+     "md_compacted": 10727
+    },
+    "recall_tokens": 947,
+    "questions": 5,
+    "md_lines": 1824
+   },
+   {
+    "session": 229,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 25333,
+     "md_200": 2588,
+     "md_compacted": 10791
+    },
+    "recall_tokens": 484,
+    "questions": 5,
+    "md_lines": 1832
+   },
+   {
+    "session": 230,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 25449,
+     "md_200": 2588,
+     "md_compacted": 10829
+    },
+    "recall_tokens": 1075,
+    "questions": 5,
+    "md_lines": 1840
+   },
+   {
+    "session": 231,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 25564,
+     "md_200": 2588,
+     "md_compacted": 10855
+    },
+    "recall_tokens": 959,
+    "questions": 5,
+    "md_lines": 1848
+   },
+   {
+    "session": 232,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 25674,
+     "md_200": 2588,
+     "md_compacted": 10900
+    },
+    "recall_tokens": 525,
+    "questions": 5,
+    "md_lines": 1856
+   },
+   {
+    "session": 233,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 25787,
+     "md_200": 2588,
+     "md_compacted": 10911
+    },
+    "recall_tokens": 1294,
+    "questions": 5,
+    "md_lines": 1864
+   },
+   {
+    "session": 234,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 25902,
+     "md_200": 2588,
+     "md_compacted": 10919
+    },
+    "recall_tokens": 1167,
+    "questions": 5,
+    "md_lines": 1872
+   },
+   {
+    "session": 235,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 26017,
+     "md_200": 2588,
+     "md_compacted": 10962
+    },
+    "recall_tokens": 1551,
+    "questions": 5,
+    "md_lines": 1880
+   },
+   {
+    "session": 236,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 26134,
+     "md_200": 2588,
+     "md_compacted": 10962
+    },
+    "recall_tokens": 1505,
+    "questions": 5,
+    "md_lines": 1888
+   },
+   {
+    "session": 237,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 26246,
+     "md_200": 2588,
+     "md_compacted": 11001
+    },
+    "recall_tokens": 1041,
+    "questions": 5,
+    "md_lines": 1896
+   },
+   {
+    "session": 238,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 26360,
+     "md_200": 2588,
+     "md_compacted": 11039
+    },
+    "recall_tokens": 758,
+    "questions": 5,
+    "md_lines": 1904
+   },
+   {
+    "session": 239,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 26466,
+     "md_200": 2588,
+     "md_compacted": 11063
+    },
+    "recall_tokens": 1084,
+    "questions": 5,
+    "md_lines": 1912
+   },
+   {
+    "session": 240,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 26575,
+     "md_200": 2588,
+     "md_compacted": 11101
+    },
+    "recall_tokens": 1116,
+    "questions": 5,
+    "md_lines": 1920
+   },
+   {
+    "session": 241,
+    "start_tokens": {
+     "leviathan": 697,
+     "md_full": 26705,
+     "md_200": 2588,
+     "md_compacted": 11121
+    },
+    "recall_tokens": 1079,
+    "questions": 5,
+    "md_lines": 1928
+   },
+   {
+    "session": 242,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 26821,
+     "md_200": 2588,
+     "md_compacted": 11162
+    },
+    "recall_tokens": 1433,
+    "questions": 5,
+    "md_lines": 1936
+   },
+   {
+    "session": 243,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 26935,
+     "md_200": 2588,
+     "md_compacted": 11199
+    },
+    "recall_tokens": 481,
+    "questions": 5,
+    "md_lines": 1944
+   },
+   {
+    "session": 244,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 27048,
+     "md_200": 2588,
+     "md_compacted": 11214
+    },
+    "recall_tokens": 1598,
+    "questions": 5,
+    "md_lines": 1952
+   },
+   {
+    "session": 245,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 27164,
+     "md_200": 2588,
+     "md_compacted": 11223
+    },
+    "recall_tokens": 474,
+    "questions": 5,
+    "md_lines": 1960
+   },
+   {
+    "session": 246,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 27273,
+     "md_200": 2588,
+     "md_compacted": 11258
+    },
+    "recall_tokens": 478,
+    "questions": 5,
+    "md_lines": 1968
+   },
+   {
+    "session": 247,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 27391,
+     "md_200": 2588,
+     "md_compacted": 11271
+    },
+    "recall_tokens": 1114,
+    "questions": 5,
+    "md_lines": 1976
+   },
+   {
+    "session": 248,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 27511,
+     "md_200": 2588,
+     "md_compacted": 11280
+    },
+    "recall_tokens": 997,
+    "questions": 5,
+    "md_lines": 1984
+   },
+   {
+    "session": 249,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 27621,
+     "md_200": 2588,
+     "md_compacted": 11314
+    },
+    "recall_tokens": 785,
+    "questions": 5,
+    "md_lines": 1992
+   },
+   {
+    "session": 250,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 27735,
+     "md_200": 2588,
+     "md_compacted": 11357
+    },
+    "recall_tokens": 1505,
+    "questions": 5,
+    "md_lines": 2000
+   },
+   {
+    "session": 251,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 27843,
+     "md_200": 2588,
+     "md_compacted": 11406
+    },
+    "recall_tokens": 1512,
+    "questions": 5,
+    "md_lines": 2008
+   },
+   {
+    "session": 252,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 27961,
+     "md_200": 2588,
+     "md_compacted": 11443
+    },
+    "recall_tokens": 561,
+    "questions": 5,
+    "md_lines": 2016
+   },
+   {
+    "session": 253,
+    "start_tokens": {
+     "leviathan": 702,
+     "md_full": 28066,
+     "md_200": 2588,
+     "md_compacted": 11488
+    },
+    "recall_tokens": 990,
+    "questions": 5,
+    "md_lines": 2024
+   },
+   {
+    "session": 254,
+    "start_tokens": {
+     "leviathan": 704,
+     "md_full": 28181,
+     "md_200": 2588,
+     "md_compacted": 11514
+    },
+    "recall_tokens": 877,
+    "questions": 5,
+    "md_lines": 2032
+   },
+   {
+    "session": 255,
+    "start_tokens": {
+     "leviathan": 737,
+     "md_full": 28290,
+     "md_200": 2588,
+     "md_compacted": 11523
+    },
+    "recall_tokens": 966,
+    "questions": 5,
+    "md_lines": 2040
+   },
+   {
+    "session": 256,
+    "start_tokens": {
+     "leviathan": 737,
+     "md_full": 28399,
+     "md_200": 2588,
+     "md_compacted": 11558
+    },
+    "recall_tokens": 932,
+    "questions": 5,
+    "md_lines": 2048
+   },
+   {
+    "session": 257,
+    "start_tokens": {
+     "leviathan": 737,
+     "md_full": 28507,
+     "md_200": 2588,
+     "md_compacted": 11595
+    },
+    "recall_tokens": 1618,
+    "questions": 5,
+    "md_lines": 2056
+   },
+   {
+    "session": 258,
+    "start_tokens": {
+     "leviathan": 737,
+     "md_full": 28617,
+     "md_200": 2588,
+     "md_compacted": 11621
+    },
+    "recall_tokens": 2226,
+    "questions": 5,
+    "md_lines": 2064
+   },
+   {
+    "session": 259,
+    "start_tokens": {
+     "leviathan": 738,
+     "md_full": 28736,
+     "md_200": 2588,
+     "md_compacted": 11648
+    },
+    "recall_tokens": 480,
+    "questions": 5,
+    "md_lines": 2072
+   },
+   {
+    "session": 260,
+    "start_tokens": {
+     "leviathan": 738,
+     "md_full": 28848,
+     "md_200": 2588,
+     "md_compacted": 11686
+    },
+    "recall_tokens": 1661,
+    "questions": 5,
+    "md_lines": 2080
+   },
+   {
+    "session": 261,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 28952,
+     "md_200": 2588,
+     "md_compacted": 11735
+    },
+    "recall_tokens": 518,
+    "questions": 5,
+    "md_lines": 2088
+   },
+   {
+    "session": 262,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 29054,
+     "md_200": 2588,
+     "md_compacted": 11794
+    },
+    "recall_tokens": 922,
+    "questions": 5,
+    "md_lines": 2096
+   },
+   {
+    "session": 263,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 29165,
+     "md_200": 2588,
+     "md_compacted": 11833
+    },
+    "recall_tokens": 971,
+    "questions": 5,
+    "md_lines": 2104
+   },
+   {
+    "session": 264,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 29263,
+     "md_200": 2588,
+     "md_compacted": 11902
+    },
+    "recall_tokens": 995,
+    "questions": 5,
+    "md_lines": 2112
+   },
+   {
+    "session": 265,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 29383,
+     "md_200": 2588,
+     "md_compacted": 11928
+    },
+    "recall_tokens": 1635,
+    "questions": 5,
+    "md_lines": 2120
+   },
+   {
+    "session": 266,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 29487,
+     "md_200": 2588,
+     "md_compacted": 11971
+    },
+    "recall_tokens": 926,
+    "questions": 5,
+    "md_lines": 2128
+   },
+   {
+    "session": 267,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 29598,
+     "md_200": 2588,
+     "md_compacted": 12025
+    },
+    "recall_tokens": 1709,
+    "questions": 5,
+    "md_lines": 2136
+   },
+   {
+    "session": 268,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 29717,
+     "md_200": 2588,
+     "md_compacted": 12044
+    },
+    "recall_tokens": 472,
+    "questions": 5,
+    "md_lines": 2144
+   },
+   {
+    "session": 269,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 29820,
+     "md_200": 2588,
+     "md_compacted": 12073
+    },
+    "recall_tokens": 1121,
+    "questions": 5,
+    "md_lines": 2152
+   },
+   {
+    "session": 270,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 29935,
+     "md_200": 2588,
+     "md_compacted": 12098
+    },
+    "recall_tokens": 1986,
+    "questions": 5,
+    "md_lines": 2160
+   },
+   {
+    "session": 271,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 30045,
+     "md_200": 2588,
+     "md_compacted": 12132
+    },
+    "recall_tokens": 1541,
+    "questions": 5,
+    "md_lines": 2168
+   },
+   {
+    "session": 272,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 30165,
+     "md_200": 2588,
+     "md_compacted": 12161
+    },
+    "recall_tokens": 1540,
+    "questions": 5,
+    "md_lines": 2176
+   },
+   {
+    "session": 273,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 30281,
+     "md_200": 2588,
+     "md_compacted": 12189
+    },
+    "recall_tokens": 942,
+    "questions": 5,
+    "md_lines": 2184
+   },
+   {
+    "session": 274,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 30399,
+     "md_200": 2588,
+     "md_compacted": 12229
+    },
+    "recall_tokens": 479,
+    "questions": 5,
+    "md_lines": 2192
+   },
+   {
+    "session": 275,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 30506,
+     "md_200": 2588,
+     "md_compacted": 12262
+    },
+    "recall_tokens": 2507,
+    "questions": 5,
+    "md_lines": 2200
+   },
+   {
+    "session": 276,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 30608,
+     "md_200": 2588,
+     "md_compacted": 12322
+    },
+    "recall_tokens": 1199,
+    "questions": 5,
+    "md_lines": 2208
+   },
+   {
+    "session": 277,
+    "start_tokens": {
+     "leviathan": 735,
+     "md_full": 30724,
+     "md_200": 2588,
+     "md_compacted": 12338
+    },
+    "recall_tokens": 1104,
+    "questions": 5,
+    "md_lines": 2216
+   },
+   {
+    "session": 278,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 30837,
+     "md_200": 2588,
+     "md_compacted": 12393
+    },
+    "recall_tokens": 1749,
+    "questions": 5,
+    "md_lines": 2224
+   },
+   {
+    "session": 279,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 30944,
+     "md_200": 2588,
+     "md_compacted": 12432
+    },
+    "recall_tokens": 1019,
+    "questions": 5,
+    "md_lines": 2232
+   },
+   {
+    "session": 280,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 31060,
+     "md_200": 2588,
+     "md_compacted": 12445
+    },
+    "recall_tokens": 781,
+    "questions": 5,
+    "md_lines": 2240
+   },
+   {
+    "session": 281,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 31166,
+     "md_200": 2588,
+     "md_compacted": 12494
+    },
+    "recall_tokens": 1516,
+    "questions": 5,
+    "md_lines": 2248
+   },
+   {
+    "session": 282,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 31278,
+     "md_200": 2588,
+     "md_compacted": 12535
+    },
+    "recall_tokens": 1964,
+    "questions": 5,
+    "md_lines": 2256
+   },
+   {
+    "session": 283,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 31396,
+     "md_200": 2588,
+     "md_compacted": 12550
+    },
+    "recall_tokens": 1708,
+    "questions": 5,
+    "md_lines": 2264
+   },
+   {
+    "session": 284,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 31524,
+     "md_200": 2588,
+     "md_compacted": 12550
+    },
+    "recall_tokens": 1440,
+    "questions": 5,
+    "md_lines": 2272
+   },
+   {
+    "session": 285,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 31629,
+     "md_200": 2588,
+     "md_compacted": 12612
+    },
+    "recall_tokens": 1054,
+    "questions": 5,
+    "md_lines": 2280
+   },
+   {
+    "session": 286,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 31740,
+     "md_200": 2588,
+     "md_compacted": 12649
+    },
+    "recall_tokens": 1522,
+    "questions": 5,
+    "md_lines": 2288
+   },
+   {
+    "session": 287,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 31851,
+     "md_200": 2588,
+     "md_compacted": 12691
+    },
+    "recall_tokens": 2398,
+    "questions": 5,
+    "md_lines": 2296
+   },
+   {
+    "session": 288,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 31966,
+     "md_200": 2588,
+     "md_compacted": 12732
+    },
+    "recall_tokens": 1889,
+    "questions": 5,
+    "md_lines": 2304
+   },
+   {
+    "session": 289,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 32075,
+     "md_200": 2588,
+     "md_compacted": 12794
+    },
+    "recall_tokens": 470,
+    "questions": 5,
+    "md_lines": 2312
+   },
+   {
+    "session": 290,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 32194,
+     "md_200": 2588,
+     "md_compacted": 12822
+    },
+    "recall_tokens": 1531,
+    "questions": 5,
+    "md_lines": 2320
+   },
+   {
+    "session": 291,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 32299,
+     "md_200": 2588,
+     "md_compacted": 12883
+    },
+    "recall_tokens": 560,
+    "questions": 5,
+    "md_lines": 2328
+   },
+   {
+    "session": 292,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 32415,
+     "md_200": 2588,
+     "md_compacted": 12921
+    },
+    "recall_tokens": 1866,
+    "questions": 5,
+    "md_lines": 2336
+   },
+   {
+    "session": 293,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 32529,
+     "md_200": 2588,
+     "md_compacted": 12948
+    },
+    "recall_tokens": 1675,
+    "questions": 5,
+    "md_lines": 2344
+   },
+   {
+    "session": 294,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 32638,
+     "md_200": 2588,
+     "md_compacted": 12994
+    },
+    "recall_tokens": 2002,
+    "questions": 5,
+    "md_lines": 2352
+   },
+   {
+    "session": 295,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 32751,
+     "md_200": 2588,
+     "md_compacted": 13018
+    },
+    "recall_tokens": 599,
+    "questions": 5,
+    "md_lines": 2360
+   },
+   {
+    "session": 296,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 32866,
+     "md_200": 2588,
+     "md_compacted": 13049
+    },
+    "recall_tokens": 525,
+    "questions": 5,
+    "md_lines": 2368
+   },
+   {
+    "session": 297,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 32981,
+     "md_200": 2588,
+     "md_compacted": 13087
+    },
+    "recall_tokens": 2442,
+    "questions": 5,
+    "md_lines": 2376
+   },
+   {
+    "session": 298,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 33090,
+     "md_200": 2588,
+     "md_compacted": 13137
+    },
+    "recall_tokens": 1560,
+    "questions": 5,
+    "md_lines": 2384
+   },
+   {
+    "session": 299,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 33203,
+     "md_200": 2588,
+     "md_compacted": 13160
+    },
+    "recall_tokens": 1193,
+    "questions": 5,
+    "md_lines": 2392
+   },
+   {
+    "session": 300,
+    "start_tokens": {
+     "leviathan": 736,
+     "md_full": 33313,
+     "md_200": 2588,
+     "md_compacted": 13182
+    },
+    "recall_tokens": 1716,
+    "questions": 5,
+    "md_lines": 2400
+   }
+  ],
+  "summary": {
+   "leviathan": {
+    "answerable": 1.0,
+    "top1": 1.0,
+    "stale_exposure": 0.0,
+    "asked": 1495
+   },
+   "md_full": {
+    "answerable": 1.0,
+    "top1": 1.0,
+    "stale_exposure": 0.7377926421404682,
+    "asked": 1495
+   },
+   "md_200": {
+    "answerable": 0.17993311036789297,
+    "top1": 0.17993311036789297,
+    "stale_exposure": 0.36387959866220737,
+    "asked": 1495
+   },
+   "md_compacted": {
+    "answerable": 1.0,
+    "top1": 1.0,
+    "stale_exposure": 0.0,
+    "asked": 1495
+   }
+  },
+  "final_start_tokens": {
+   "leviathan": 736,
+   "md_full": 33313,
+   "md_200": 2588,
+   "md_compacted": 13182
+  },
+  "write_ms_p50": 0.384357000257296,
+  "recall_ms_p50": 0.8946359994297381,
+  "store_bytes": 2224128
+ },
+ "scale": [
+  {
+   "memories": 10000,
+   "import_seconds": 1.3329807279988017,
+   "store_bytes": 12013568,
+   "markdown_tokens": 470494,
+   "recall_p50_ms": 0.828275000458234,
+   "recall_p95_ms": 2.068462999886833,
+   "briefing_p50_ms": 9.611000001314096,
+   "remember_p50_ms": 0.18751100105873775,
+   "remember_p95_ms": 0.37568199877568986,
+   "cli_recall_p50_ms": 18.491644999812706
+  },
+  {
+   "memories": 100000,
+   "import_seconds": 15.341209750000417,
+   "store_bytes": 117379072,
+   "markdown_tokens": 4704940,
+   "recall_p50_ms": 5.441264000182855,
+   "recall_p95_ms": 8.183280999219278,
+   "briefing_p50_ms": 9.552490000714897,
+   "remember_p50_ms": 0.18022100084635895,
+   "remember_p95_ms": 0.38990299981378485,
+   "cli_recall_p50_ms": 28.097246000470477
+  },
+  {
+   "memories": 1000000,
+   "import_seconds": 174.67036123700018,
+   "store_bytes": 1163710464,
+   "markdown_tokens": 47049400,
+   "recall_p50_ms": 24.557167000239133,
+   "recall_p95_ms": 50.049851000949275,
+   "briefing_p50_ms": 9.645182000895147,
+   "remember_p50_ms": 0.19165200137649663,
+   "remember_p95_ms": 0.34871199932240415,
+   "cli_recall_p50_ms": 51.93792299905908
+  }
+ ],
+ "seconds": 239.3141348361969
+}

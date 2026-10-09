@@ -565,6 +565,16 @@ impl Store {
         Card::build(&id, &doc, &self.mapping, self.card_opts, highlight)
     }
 
+    /// The result card for one record id.
+    pub fn card_by_id(&self, id: &str) -> Result<Option<Card>> {
+        let found: Option<(String, String)> = self
+            .conn
+            .prepare_cached("SELECT id, doc FROM records WHERE id = ?1")?
+            .query_row([id.trim()], |r| Ok((r.get(0)?, r.get(1)?)))
+            .optional()?;
+        found.map(|(id, doc)| Card::build(&id, &doc, &self.mapping, self.card_opts, &[])).transpose()
+    }
+
     /// Full stored record, exactly as ingested.
     pub fn get(&self, id: &str) -> Result<Option<serde_json::Value>> {
         let raw: Option<String> = self

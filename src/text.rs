@@ -223,9 +223,38 @@ pub fn format_unix(secs: i64) -> String {
     format!("{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z", rem / 3600, rem % 3600 / 60, rem % 60)
 }
 
+/// Unix seconds from `YYYY-MM-DD[THH:MM[:SS]][Z]`, the inverse of
+/// [`format_unix`]. `None` when the string has another shape.
+pub fn parse_unix(value: &str) -> Option<i64> {
+    let s = value.trim().trim_end_matches('Z');
+    let num = |r: std::ops::Range<usize>| s.get(r)?.parse::<i64>().ok();
+    let (y, m, d) = (num(0..4)?, num(5..7)?, num(8..10)?);
+    if s.len() < 10 || !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+        return None;
+    }
+    let (h, mi, sec) =
+        if s.len() >= 16 { (num(11..13)?, num(14..16)?, num(17..19).unwrap_or(0)) } else { (0, 0, 0) };
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    Some(days * 86_400 + h * 3600 + mi * 60 + sec)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unix_round_trips() {
+        for secs in [0, 951_782_400, 1_710_166_800, 1_791_000_000, 4_102_444_799] {
+            assert_eq!(parse_unix(&format_unix(secs)), Some(secs));
+        }
+        assert_eq!(parse_unix("2024-03-11"), Some(1_710_115_200));
+        assert_eq!(parse_unix("soon"), None);
+    }
 
     #[test]
     fn query_parsing_handles_phrases_exclusions_and_syntax() {

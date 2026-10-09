@@ -6,8 +6,11 @@ use clap::{Parser, Subcommand};
 use leviathan::card::CardOptions;
 use leviathan::config::{Config, FieldFlags};
 use leviathan::index::{self, BuildOptions};
+use leviathan::mcp::{MemoryOptions, MemoryTools, ServerOptions};
 use leviathan::query::{Scope, SearchRequest, Sort, Status, Store};
 use leviathan::{infer, mcp, render, source, wrap};
+
+mod memory_cli;
 
 /// Exit status when the named group is unknown or ambiguous.
 const EXIT_GROUP: u8 = 3;
@@ -17,13 +20,25 @@ const INFER_SAMPLE: usize = 2000;
 #[command(
     name = "leviathan",
     version,
-    about = "Deep memory for agents: index large datasets once, answer with a few ranked, cited records",
-    after_help = "Examples:\n  leviathan init ./data                 # propose leviathan.toml from the data\n  leviathan index ./data                # build (uses ./leviathan.toml, else infers)\n  leviathan describe                    # fields, groups, filter values\n  leviathan search \"login loop after reset\" -g acme --where status=open\n  leviathan recent -g acme --since 2024-06\n  sqlite3 -json app.db 'select * from t' | leviathan index -\n  leviathan mcp                         # stdio MCP server\n  leviathan wrap cursor                 # print MCP config for an agent\n\nExit status: 0 ok (zero hits included), 1 error, 2 usage, 3 group unknown or ambiguous."
+    about = "Deep memory for agents: index large datasets once, answer with a few ranked, cited records; remember what agents learn",
+    after_help = "Examples:\n  leviathan init ./data                 # propose leviathan.toml from the data\n  leviathan index ./data                # build (uses ./leviathan.toml, else infers)\n  leviathan describe                    # fields, groups, filter values\n  leviathan search \"login loop after reset\" -g acme --where status=open\n  leviathan recent -g acme --since 2024-06\n  sqlite3 -json app.db 'select * from t' | leviathan index -\n  leviathan memory remember -s joshua -k editor \"Uses helix\"\n  leviathan memory recall editor\n  leviathan mcp --memory                # stdio MCP server, data + memory\n  leviathan serve --http 0.0.0.0:7777 --memory   # the same over HTTP\n  leviathan wrap cursor --memory        # print the setup for an agent\n\nExit status: 0 ok (zero hits included), 1 error, 2 usage or refused write, 3 group unknown or ambiguous."
 )]
 struct Cli {
     /// Index file.
     #[arg(long, global = true, env = "LEVIATHAN_INDEX", default_value = "leviathan.db")]
     index: PathBuf,
+    /// Enable the read/write memory store. Bare `--memory` uses the default
+    /// (~/.leviathan/memory.db, or [memory].path); `--memory=PATH` picks a file.
+    #[arg(
+        long,
+        global = true,
+        env = "LEVIATHAN_MEMORY",
+        num_args = 0..=1,
+        require_equals = true,
+        default_missing_value = "",
+        value_name = "PATH"
+    )]
+    memory: Option<String>,
     /// Emit JSON instead of compact text.
     #[arg(long, global = true)]
     json: bool,
@@ -142,13 +157,65 @@ enum Command {
         #[arg(long, default_value_t = 8)]
         top: usize,
     },
-    /// Serve the index over the Model Context Protocol (stdio).
-    Mcp,
-    /// Print the config that registers Leviathan with an agent.
-    Wrap {
-        #[arg(value_parser = clap::builder::PossibleValuesParser::new(wrap::AGENTS))]
-        agent: String,
+    /// Serve the index (and memory, with --memory) over the Model Context Protocol on stdio.
+    Mcp {
+        /// Bridge stdio to a remote Leviathan (or any Streamable HTTP MCP server) at this URL.
+        #[arg(long, value_name = "URL")]
+        remote: Option<String>,
+        /// Bearer token file for --remote [default: the --token-env variable].
+        #[arg(long, env = "LEVIATHAN_TOKEN_FILE", value_name = "FILE")]
+        token_file: Option<PathBuf>,
+        /// Environment variable holding the bearer token for --remote.
+        #[arg(long, default_value = "LEVIATHAN_TOKEN", value_name = "NAME")]
+        token_env: String,
+        #[arg(long, value_enum, default_value_t)]
+        memory_tools: MemoryTools,
     },
+    /// Serve MCP over Streamable HTTP, plus REST (/v1/*) and OpenAPI, for remote agents.
+    Serve {
+        /// Address to listen on.
+        #[arg(long, value_name = "ADDR", default_value = "127.0.0.1:7777")]
+        http: String,
+        /// token: a bearer token; oauth: also OAuth 2.1 for hosted apps; none: loopback only.
+        #[arg(long, value_enum, default_value_t = Auth::Token)]
+        auth: Auth,
+        /// Bearer token file, created (mode 600) when missing [default: leviathan.token beside the memory or index].
+        #[arg(long, env = "LEVIATHAN_TOKEN_FILE", value_name = "FILE")]
+        token_file: Option<PathBuf>,
+        /// Public base URL (https://...) clients reach this server at; required for --auth oauth beyond loopback.
+        #[arg(long, value_name = "URL")]
+        public_url: Option<String>,
+        /// Browser origins allowed to call the server (repeatable).
+        #[arg(long = "allow-origin", value_name = "ORIGIN")]
+        allow_origins: Vec<String>,
+        #[arg(long, default_value_t = 4)]
+        threads: usize,
+        #[arg(long, value_enum, default_value_t)]
+        memory_tools: MemoryTools,
+    },
+    /// Read/write memory: remember, recall, forget, briefing, import/export.
+    Memory {
+        /// Config file with a [memory] section [default: ./leviathan.toml when present].
+        #[arg(short = 'c', long, env = "LEVIATHAN_CONFIG")]
+        config: Option<PathBuf>,
+        #[command(subcommand)]
+        command: memory_cli::MemoryCommand,
+    },
+    /// Print the setup that registers Leviathan with an agent.
+    Wrap {
+        /// Omit to list every target.
+        #[arg(value_parser = clap::builder::PossibleValuesParser::new(wrap::targets()))]
+        agent: Option<String>,
+        #[command(flatten)]
+        opts: wrap::WrapFlags,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+enum Auth {
+    Token,
+    Oauth,
+    None,
 }
 
 fn main() -> ExitCode {
@@ -157,7 +224,11 @@ fn main() -> ExitCode {
         Ok(code) => ExitCode::from(code),
         Err(err) => {
             eprintln!("leviathan: {err:#}");
-            ExitCode::FAILURE
+            if err.downcast_ref::<leviathan::memory::Refused>().is_some() {
+                ExitCode::from(2)
+            } else {
+                ExitCode::FAILURE
+            }
         }
     }
 }
@@ -329,12 +400,109 @@ fn run(cli: Cli) -> Result<u8> {
             let d = open()?.describe(top.clamp(1, 50))?;
             emit(cli.json, &d, || render::describe(&d))?;
         }
-        Command::Mcp => mcp::serve(&cli.index, opts)?,
-        Command::Wrap { agent } => {
+        Command::Mcp { remote, token_file, token_env, memory_tools } => {
+            if let Some(url) = remote {
+                return remote_bridge(&url, token_file.as_deref(), &token_env);
+            }
+            mcp::serve(server_options(&cli.index, opts, cli.memory.as_deref(), memory_tools)?)?
+        }
+        Command::Serve { http, auth, token_file, public_url, allow_origins, threads, memory_tools } => {
+            let server = server_options(&cli.index, opts, cli.memory.as_deref(), memory_tools)?;
+            return serve_http(server, &http, auth, token_file, public_url, allow_origins, threads);
+        }
+        Command::Memory { config, command } => {
+            let cfg = memory_cli::memory_config(config.as_deref())?;
+            let path = memory_cli::resolve_path(cli.memory.as_deref(), &cfg);
+            return memory_cli::run(command, &path, &cfg, cli.json, &cli.index, opts);
+        }
+        Command::Wrap { agent: None, .. } => {
+            let width = wrap::catalog().iter().map(|(n, _)| n.len()).max().unwrap_or(0);
+            for (name, title) in wrap::catalog() {
+                println!("{name:width$}  {title}");
+            }
+            println!("\nleviathan wrap <target> [--memory] [--remote URL] [--hooks] [--rules] [--apply]");
+        }
+        Command::Wrap { agent: Some(agent), opts: flags } => {
             let exe = std::env::current_exe()?;
             let index = std::path::absolute(&cli.index)?;
-            print!("{}", wrap::recipe(&agent, &exe, &index)?);
+            let cfg = memory_cli::memory_config(None)?;
+            let memory = cli.memory.as_deref().map(|m| memory_cli::resolve_path(Some(m), &cfg));
+            let memory = memory.map(|m| std::path::absolute(&m)).transpose()?;
+            let ctx = wrap::Context { exe, index, memory, flags };
+            print!("{}", wrap::run(&agent, &ctx)?);
         }
     }
     Ok(0)
+}
+
+/// Memory is on when `--memory` (or LEVIATHAN_MEMORY) is given or the config
+/// sets `[memory].path`.
+fn server_options(
+    index: &Path,
+    card: CardOptions,
+    flag: Option<&str>,
+    tools: MemoryTools,
+) -> Result<ServerOptions> {
+    let cfg = memory_cli::memory_config(None)?;
+    let memory = (flag.is_some() || cfg.path.is_some()).then(|| MemoryOptions {
+        path: memory_cli::resolve_path(flag, &cfg),
+        settings: leviathan::memory::Settings::from_config(&cfg),
+        tools,
+    });
+    Ok(ServerOptions { index: index.to_path_buf(), card, memory })
+}
+
+#[cfg(feature = "remote")]
+fn remote_bridge(url: &str, token_file: Option<&Path>, token_env: &str) -> Result<u8> {
+    let token = leviathan::http::client_token(token_file, token_env)?;
+    leviathan::http::bridge(url, token.as_deref())?;
+    Ok(0)
+}
+
+#[cfg(not(feature = "remote"))]
+fn remote_bridge(_: &str, _: Option<&Path>, _: &str) -> Result<u8> {
+    bail!("this build has no `remote` feature; rebuild with default features for --remote")
+}
+
+#[cfg(feature = "remote")]
+fn serve_http(
+    server: ServerOptions,
+    addr: &str,
+    auth: Auth,
+    token_file: Option<PathBuf>,
+    public_url: Option<String>,
+    allow_origins: Vec<String>,
+    threads: usize,
+) -> Result<u8> {
+    use leviathan::http::{AuthMode, HttpOptions};
+    let beside = server.memory.as_ref().map(|m| m.path.clone()).unwrap_or_else(|| server.index.clone());
+    let token_file = token_file.unwrap_or_else(|| beside.with_file_name("leviathan.token"));
+    let auth = match auth {
+        Auth::Token => AuthMode::Token,
+        Auth::Oauth => AuthMode::OAuth,
+        Auth::None => AuthMode::None,
+    };
+    leviathan::http::serve(HttpOptions {
+        server,
+        addr: addr.to_string(),
+        auth,
+        token_file,
+        public_url,
+        allow_origins,
+        threads: threads.clamp(1, 64),
+    })?;
+    Ok(0)
+}
+
+#[cfg(not(feature = "remote"))]
+fn serve_http(
+    _: ServerOptions,
+    _: &str,
+    _: Auth,
+    _: Option<PathBuf>,
+    _: Option<String>,
+    _: Vec<String>,
+    _: usize,
+) -> Result<u8> {
+    bail!("this build has no `remote` feature; rebuild with default features for `serve`")
 }

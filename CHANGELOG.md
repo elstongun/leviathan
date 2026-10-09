@@ -6,6 +6,58 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-09
+
+### Added
+
+- **Memory**: an optional read/write store for agents, in its own SQLite
+  file (`--memory`, default `~/.leviathan/memory.db`). See
+  [docs/MEMORY.md](docs/MEMORY.md).
+  - MCP tools `remember`, `recall`, `forget` and `memory_describe`, served
+    by `leviathan mcp --memory` beside the data tools or alone.
+  - Keyed slots: writing a subject and key again replaces the current value
+    and keeps the old one as history. Restatements merge, similar memories
+    are returned as `related`, and subjects resolve aliases and typos.
+  - `recall` ranks by relevance, recency, importance and use within a token
+    budget, filters by subject, kind, namespace and date, and answers
+    `as_of` and `history` questions. With no arguments it returns the
+    session-start briefing.
+  - A secret guard refuses keys, tokens, JWTs, credentials in URLs and
+    high-entropy strings on every write and import.
+  - `leviathan memory` subcommands: `init`, `remember`, `recall`,
+    `briefing`, `forget`, `list`, `history`, `stats`, `export`, `import`
+    (JSONL backups and markdown memory files) and `prune`.
+  - `memory briefing --format claude|gemini|cursor|copilot|cline|json` for
+    session-start hooks.
+  - A `[memory]` section in `leviathan.toml`: path, namespaces, token
+    budgets, recency half-lives per kind, pinned subjects.
+- **Remote serving**: `leviathan serve --http ADDR` serves MCP over
+  Streamable HTTP, a REST API (`/v1/<tool>`) and an OpenAPI document.
+  Bearer-token auth by default; `--auth oauth` adds an OAuth 2.1
+  authorization server (discovery, dynamic client registration, PKCE,
+  rotating refresh tokens, approval code on the server terminal) for
+  claude.ai and ChatGPT. Origin checks, body limits, per-caller rate limits
+  on the OAuth endpoints and `--memory-tools recall` for read-only memory. See [docs/REMOTE.md](docs/REMOTE.md).
+- `leviathan mcp --remote URL`: a stdio bridge to a remote server, for
+  agents that only speak stdio; `memory briefing --remote URL` for hooks.
+- `leviathan wrap` covers 24 agents and 12 hosted, API and framework
+  targets (see [docs/AGENTS.md](docs/AGENTS.md)), with `--memory`, `--remote`,
+  `--hooks` (session-start briefing), `--rules` (always-on instructions) and
+  `--apply`, which merges into existing configs, backs up what it changes
+  and is idempotent. `wrap` with no agent lists the targets. Function-calling
+  schema exports for OpenAI, Anthropic and Gemini.
+- Memory benchmark (`bench/memory`) against markdown memory files, with
+  charts.
+- Agent skill for memory (`skills/leviathan-memory/SKILL.md`).
+- Cargo feature `remote` (default). `--no-default-features` builds without
+  any network code.
+
+### Changed
+
+- MCP server code is shared between stdio and HTTP.
+- `search` also accepts `where_list` (`["status=open"]`), for function-calling
+  APIs whose schemas can't express the `where` object.
+
 ## [0.1.0] - 2026-10-05
 
 ### Added
@@ -39,5 +91,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `examples/maintenance`), and a deterministic synthetic benchmark
   (`bench/`).
 
-[Unreleased]: https://github.com/elstongun/leviathan/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/elstongun/leviathan/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/elstongun/leviathan/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/elstongun/leviathan/releases/tag/v0.1.0

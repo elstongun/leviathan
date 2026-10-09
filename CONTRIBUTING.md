@@ -20,6 +20,7 @@ Requires Rust 1.88+ and a C compiler (SQLite is compiled in via `rusqlite`'s
 cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+cargo test -p leviathan-index --no-default-features   # the build without network code
 ```
 
 - Keep pull requests focused; one behavior change per PR.
@@ -29,6 +30,11 @@ cargo test --workspace
 - **Ranking or output-format changes:** run the benchmark and paste the
   `bench/results/SUMMARY.md` table from before and after into the PR. A change
   that saves tokens but loses answers (hit@5) will not be merged.
+- **Memory recall or briefing changes:** do the same with
+  `bench/memory/run_memory_bench.py` and `bench/results/MEMORY_SUMMARY.md`.
+  Answer rate and stale exposure matter more than tokens.
+- **New agent targets for `wrap`:** cite the agent's own documentation for
+  the config path and shape, and add the target to [docs/AGENTS.md](docs/AGENTS.md).
 - Update `CHANGELOG.md` under *Unreleased*.
 
 ## Running the benchmark

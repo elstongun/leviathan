@@ -11,17 +11,17 @@ authors = ["Joshua Baker <joshuapbak@gmail.com>"]
 
 [package]
 name = "leviathan-index"
-version = "0.1.0"
-description = "Deep memory for agents over large datasets: index JSONL, CSV, SQLite or any database export once, answer with a few ranked, cited records in about five hundred tokens. CLI + MCP server."
+version = "0.2.0"
+description = "Deep memory for agents: index JSONL, CSV, SQLite or any database export once and answer with a few ranked, cited records, plus a read/write long-term memory store that replaces markdown memory files. CLI, MCP over stdio or HTTP, REST."
 readme = "README.md"
-keywords = ["mcp", "agents", "search", "full-text", "sqlite"]
+keywords = ["mcp", "agents", "memory", "search", "sqlite"]
 categories = ["command-line-utilities", "text-processing", "database"]
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-include = ["/src/**", "/README.md", "/CHANGELOG.md", "/LICENSE", "/NOTICE", "/THIRD_PARTY.md", "/docs/CONFIG.md", "/skills/**"]
+include = ["/src/**", "/README.md", "/CHANGELOG.md", "/LICENSE", "/NOTICE", "/THIRD_PARTY.md", "/docs/CONFIG.md", "/docs/MEMORY.md", "/docs/REMOTE.md", "/docs/AGENTS.md", "/skills/**"]
 
 [lib]
 name = "leviathan"
@@ -33,15 +33,20 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.104"
+base64 = { version = "0.23.1", optional = true }
 clap = { version = "4.6.7", features = ["derive", "env"] }
 csv = "1.4.0"
 flate2 = "1.1.10"
+getrandom = "0.3"
 regex = "1.13.1"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["preserve_order"] }
+sha2 = { version = "0.11.0", optional = true }
 strsim = "0.11.1"
+tiny_http = { version = "0.12.0", optional = true }
 toml = "1.1.6"
+ureq = { version = "3.4.2", default-features = false, features = ["rustls"], optional = true }
 
 [dev-dependencies]
 tempfile = "3.27.0"
@@ -56,3 +61,8 @@ unsafe_code = "forbid"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
+
+[features]
+default = ["remote"]
+# `serve --http` (MCP over HTTP, REST, OAuth) and `mcp --remote`.
+remote = ["dep:tiny_http", "dep:ureq", "dep:sha2", "dep:base64"]
