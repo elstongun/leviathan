@@ -1,6 +1,6 @@
 ---
 name: leviathan
-description: Search a large indexed dataset (tickets, logs, incidents, maintenance records, orders, notes, any table or export) and get a few ranked, cited records instead of reading raw data. Use when the user asks about past records ("has this happened before", "what fixed it", "what's been going on with <customer/host/machine>", "find tickets about ..."), or when data is too large to read or grep. Also use to index a new dataset for search.
+description: Search a large indexed dataset (tickets, logs, incidents, maintenance records, orders, notes, any table or export) and get a few ranked, cited records instead of reading raw data. Use when the user asks about past records ("has this happened before", "what fixed it", "what's been going on with <customer/host/machine>", "find tickets about ..."), or when data is too large to read or grep. Also use it to index a new dataset for search.
 ---
 
 # Leviathan: search large datasets without reading them
