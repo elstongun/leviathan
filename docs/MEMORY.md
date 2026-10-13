@@ -82,7 +82,7 @@ Writes are checked before they land:
 
 - **Supersession.** With a `key`, the old value gets `valid_to` and `superseded_by`. It stays in `history` and in `as_of` queries, and never shows up in a normal recall.
 - **Dedupe.** A write that says the same thing as a current memory (word overlap ≥ 0.8, or the same keyed value) merges into it and raises its importance. Nothing is duplicated.
-- **Related hints.** A new memory that overlaps an existing one (≥ 0.3) is stored, and the reply lists the near matches so the agent can `forget` or re-key one if they conflict.
+- **Related hints.** A new memory that overlaps an existing one (≥ 0.3) is stored, and the reply lists the near matches so the agent can `forget` or re-key them if they conflict.
 - **Secret guard.** Private keys, cloud and API tokens (AWS, GitHub, OpenAI and Anthropic style `sk-`, Slack, Google, Stripe, npm, crates.io), JWTs, credentials in URLs, `password = …` assignments and long high-entropy strings are refused with exit code 2 and a hint: remember *where* the secret lives, not the secret. There is no switch to turn this off.
 - **Limits.** Subject ≤ 120 characters, 12 tags, 20 refs, and ranges for importance and confidence. Bad input is refused, never silently trimmed.
 
