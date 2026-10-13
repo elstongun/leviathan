@@ -60,7 +60,7 @@ leviathan search · customer C-ACME "Acme Corp" (7 tickets) · query "sso login 
 ...
 ```
 
-- `-g` accepts a key, name or partial name. Ambiguous or unknown groups list candidates and exit 3, never guess.
+- `-g` accepts a key, name or partial name. Ambiguous or unknown groups list candidates and exit 3; never guess.
 - No match in the group falls back to other groups, labeled `OTHER CUSTOMER`.
 - Combine `--where field=value`, `--since`/`--until`, `"phrases"` and `-exclusions`.
 
