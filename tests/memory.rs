@@ -326,3 +326,17 @@ fn a_data_index_is_not_mistaken_for_memory() {
     drop(conn);
     assert!(Memory::open(&path, Settings::default()).is_err());
 }
+
+#[test]
+fn changed_keyed_text_replaces_even_with_identical_words() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut m = open(tmp.path());
+    let first = m.remember(&slot("Team", "reporting", "Alice manages Bob")).unwrap();
+    let second = m.remember(&slot("Team", "reporting", "Bob manages Alice")).unwrap();
+    assert_eq!(second.status, WriteStatus::Replaced);
+    assert_eq!(second.memory.text, "Bob manages Alice");
+    assert_eq!(second.replaced.unwrap().id, first.memory.id);
+    let duplicate = m.remember(&slot("Team", "reporting", "Bob manages Alice")).unwrap();
+    assert_eq!(duplicate.status, WriteStatus::Duplicate);
+    assert_eq!(duplicate.memory.id, second.memory.id);
+}
