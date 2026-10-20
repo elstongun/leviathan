@@ -408,3 +408,48 @@ fn mcp_round_trip() {
     drop(stdin);
     assert!(child.wait().unwrap().success());
 }
+
+#[test]
+fn long_exact_facets_remain_distinct_and_searchable_after_updates() {
+    let tmp = tempfile::tempdir().unwrap();
+    let input = tmp.path().join("facets.jsonl");
+    let prefix = "界".repeat(200);
+    let alpha = format!("{prefix} alpha");
+    let beta = format!("{prefix} beta");
+    let rows = [
+        json!({"id": "a", "label": alpha, "body": "needle"}),
+        json!({"id": "b", "label": beta, "body": "needle"}),
+        json!({"id": "short", "label": "control", "body": "needle"}),
+    ];
+    std::fs::write(&input, rows.iter().map(Value::to_string).collect::<Vec<_>>().join("\n")).unwrap();
+    let cfg: Config =
+        toml::from_str("[fields]\nid = \"id\"\ntext = [\"body\"]\nfilters = [\"label\"]\n").unwrap();
+    let sources = source::discover(std::slice::from_ref(&input), Format::Auto).unwrap();
+    let index = tmp.path().join("facets.db");
+    index::build(&index, &sources, &cfg, false, quiet()).unwrap();
+    let check = |value: &str, want: &[&str]| {
+        let store = open(&index);
+        for query in ["", "needle"] {
+            let mut r = req(None, query);
+            r.filters = vec![("label".into(), value.into())];
+            let out = store.search(&r).unwrap();
+            assert_eq!(ids(&out), want, "exact facet, query={query:?}");
+        }
+    };
+    check("CONTROL", &["short"]);
+    check(&alpha, &["a"]);
+    check(&beta, &["b"]);
+    check(&prefix, &[]);
+    let description = open(&index).describe(10).unwrap();
+    assert_eq!(description.filters[0].distinct, 3);
+    assert!(description.filters[0].top.contains(&(alpha.clone(), 1)));
+    std::fs::write(&input, json!({"id": "a", "label": beta, "body": "needle"}).to_string()).unwrap();
+    index::upsert(&index, &sources, quiet()).unwrap();
+    check(&alpha, &[]);
+    let description = open(&index).describe(10).unwrap();
+    assert_eq!(description.filters[0].distinct, 2);
+    assert!(description.filters[0].top.contains(&(beta.clone(), 2)));
+    index::delete(&index, &["b".into()]).unwrap();
+    check(&beta, &["a"]);
+    assert!(open(&index).describe(10).unwrap().filters[0].top.contains(&(beta, 1)));
+}

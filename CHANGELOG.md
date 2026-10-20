@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve complete facet values so exact filters and counts remain correct for
+  values longer than 200 characters. Rebuild older indexes with `index --force`
+  to recover previously truncated values.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added
