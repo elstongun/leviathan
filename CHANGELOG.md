@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Select the matching remote tool response instead of mistaking an interleaved server request for its result.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added
