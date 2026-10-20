@@ -165,6 +165,13 @@ pub fn read(source: &Source, sql: Option<&str>, on: &mut dyn FnMut(Item) -> Resu
         return read_sqlite(&source.path, sql, on);
     }
     let mut reader = open(source)?;
+    let mut prefix = Vec::with_capacity(3);
+    Read::by_ref(&mut reader).take(3).read_to_end(&mut prefix)?;
+    if prefix == b"\xef\xbb\xbf" {
+        prefix.clear();
+    }
+    let mut reader: Box<dyn BufRead> =
+        Box::new(BufReader::with_capacity(BUF, io::Cursor::new(prefix).chain(reader)));
     let format = match source.format {
         Format::Auto | Format::Json => match first_byte(&mut reader)? {
             None => return Ok(()),
@@ -304,4 +311,41 @@ fn read_sqlite(path: &Path, sql: Option<&str>, on: &mut dyn FnMut(Item) -> Resul
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn utf8_bom_is_ignored_before_json_detection_and_parsing() {
+        for (format, content) in [
+            (Format::Auto, "[{\"id\": 1}]"),
+            (Format::Json, "[{\"id\": 1}]"),
+            (Format::Auto, "{\"id\": 1}\n"),
+            (Format::Jsonl, "{\"id\": 1}\n"),
+        ] {
+            for bom in [false, true] {
+                let mut file = tempfile::NamedTempFile::new().unwrap();
+                if bom {
+                    file.write_all(b"\xef\xbb\xbf").unwrap();
+                }
+                file.write_all(content.as_bytes()).unwrap();
+                let source = Source { path: file.path().to_path_buf(), format };
+                let mut records = Vec::new();
+                let mut bad = 0;
+                read(&source, None, &mut |item| {
+                    match item {
+                        Item::Record { value, .. } => records.push(value),
+                        Item::Bad { .. } => bad += 1,
+                    }
+                    Ok(true)
+                })
+                .unwrap();
+                assert_eq!(bad, 0);
+                assert_eq!(records, [serde_json::json!({"id": 1})], "format={format:?}, bom={bom}");
+            }
+        }
+    }
 }
