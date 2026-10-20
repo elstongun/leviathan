@@ -181,7 +181,7 @@ impl Memory {
                 .query_row(params![c.ns, subject_norm, key], row)
                 .optional()?;
             match current {
-                Some(old) if jaccard(&word_set(&old.text), &words) >= 1.0 && old.kind == c.kind => {
+                Some(old) if old.text == c.text && old.kind == c.kind => {
                     let merged = merge(&tx, &old, &c, req, &now)?;
                     WriteOutcome {
                         status: WriteStatus::Duplicate,
