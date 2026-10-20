@@ -742,7 +742,7 @@ impl Memory {
     pub fn import_markdown(&mut self, text: &str, ns: Option<&str>, source: &str) -> Result<ImportReport> {
         let mut report = ImportReport::default();
         let mut heading: Option<String> = None;
-        let mut fence: Option<&str> = None;
+        let mut fence: Option<(char, usize)> = None;
         let mut front_matter = text.trim_start().starts_with("---");
         for (n, line) in text.lines().enumerate() {
             let t = line.trim();
@@ -750,15 +750,19 @@ impl Memory {
                 front_matter = !(n > 0 && t == "---");
                 continue;
             }
-            if let Some(open) = fence {
-                if t.starts_with(open) {
+            if let Some((marker, length)) = fence {
+                let run = t.chars().take_while(|&c| c == marker).count();
+                if run >= length && t[run..].trim().is_empty() {
                     fence = None;
                 }
                 continue;
             }
-            if let Some(open) = ["```", "~~~"].into_iter().find(|f| t.starts_with(f)) {
-                fence = Some(open);
-                continue;
+            if let Some(marker) = t.chars().next().filter(|c| matches!(c, '`' | '~')) {
+                let length = t.chars().take_while(|&c| c == marker).count();
+                if length >= 3 && (marker != '`' || !t[length..].contains('`')) {
+                    fence = Some((marker, length));
+                    continue;
+                }
             }
             if let Some(h) = t.strip_prefix('#') {
                 let h = h.trim_start_matches('#').trim();

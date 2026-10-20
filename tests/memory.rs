@@ -326,3 +326,19 @@ fn a_data_index_is_not_mistaken_for_memory() {
     drop(conn);
     assert!(Memory::open(&path, Settings::default()).is_err());
 }
+
+#[test]
+fn markdown_import_requires_matching_fence_length_and_plain_closer() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut m = open(tmp.path());
+    let md = "# Examples\n````markdown\n```\n- Example inside nested code\n```\n- Still inside outer code\n````\n- Actual lasting preference\n~~~text\n~~~not-a-closer\n- Another code example\n~~~~\n- A second actual preference\n";
+    let report = m.import_markdown(md, None, "synthetic.md").unwrap();
+    assert_eq!(report.read, 2);
+    assert_eq!(report.created, 2);
+    let mut bytes = Vec::new();
+    m.export(&mut bytes).unwrap();
+    let rows: Vec<serde_json::Value> =
+        String::from_utf8(bytes).unwrap().lines().map(|line| serde_json::from_str(line).unwrap()).collect();
+    assert_eq!(rows[0]["text"], "Actual lasting preference");
+    assert_eq!(rows[1]["text"], "A second actual preference");
+}

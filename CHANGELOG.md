@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep fenced Markdown examples out of imported memory when fences are nested or have trailing text.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added
