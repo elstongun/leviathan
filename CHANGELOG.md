@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Accept UTF-8 BOM-prefixed JSON and JSONL sources before detecting their format.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added
