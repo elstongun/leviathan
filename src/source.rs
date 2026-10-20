@@ -70,7 +70,7 @@ pub fn discover(paths: &[PathBuf], format: Format) -> Result<Vec<Source>> {
             out.push(Source { path: path.clone(), format });
         } else if path.is_dir() {
             let mut found = BTreeSet::new();
-            walk(path, &mut found)?;
+            walk(path, &mut found, &mut BTreeSet::new())?;
             for file in found {
                 let detected = format_of(&file).unwrap_or(Format::Auto);
                 out.push(Source {
@@ -94,7 +94,11 @@ pub fn discover(paths: &[PathBuf], format: Format) -> Result<Vec<Source>> {
     Ok(out)
 }
 
-fn walk(dir: &Path, out: &mut BTreeSet<PathBuf>) -> Result<()> {
+fn walk(dir: &Path, out: &mut BTreeSet<PathBuf>, ancestors: &mut BTreeSet<PathBuf>) -> Result<()> {
+    let canonical = dir.canonicalize().with_context(|| format!("resolve {}", dir.display()))?;
+    if !ancestors.insert(canonical.clone()) {
+        return Ok(());
+    }
     for entry in fs::read_dir(dir).with_context(|| format!("read {}", dir.display()))? {
         let path = entry?.path();
         let hidden = path.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with('.'));
@@ -102,11 +106,12 @@ fn walk(dir: &Path, out: &mut BTreeSet<PathBuf>) -> Result<()> {
             continue;
         }
         if path.is_dir() {
-            walk(&path, out)?;
+            walk(&path, out, ancestors)?;
         } else if matches!(format_of(&path), Some(Format::Jsonl | Format::Json | Format::Csv | Format::Tsv)) {
             out.insert(path);
         }
     }
+    ancestors.remove(&canonical);
     Ok(())
 }
 
@@ -304,4 +309,34 @@ fn read_sqlite(path: &Path, sql: Option<&str>, on: &mut dyn FnMut(Item) -> Resul
         }
     }
     Ok(())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::symlink;
+
+    #[test]
+    fn directory_discovery_does_not_follow_ancestor_symlink_cycles() {
+        let dir = tempfile::tempdir().unwrap();
+        let child = dir.path().join("child");
+        std::fs::create_dir(&child).unwrap();
+        let file = child.join("records.jsonl");
+        std::fs::write(&file, "{\"id\": 1}\n").unwrap();
+        symlink(dir.path(), child.join("parent")).unwrap();
+        let sources = discover(&[dir.path().to_path_buf()], Format::Auto).unwrap();
+        assert_eq!(sources.len(), 1, "a cycle must not duplicate the dataset");
+        assert_eq!(sources[0].path, file);
+    }
+
+    #[test]
+    fn directory_discovery_still_follows_noncyclic_directory_symlinks() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = tempfile::tempdir().unwrap();
+        std::fs::write(target.path().join("records.jsonl"), "{\"id\": 1}\n").unwrap();
+        symlink(target.path(), dir.path().join("linked")).unwrap();
+        let sources = discover(&[dir.path().to_path_buf()], Format::Auto).unwrap();
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].path, dir.path().join("linked/records.jsonl"));
+    }
 }
