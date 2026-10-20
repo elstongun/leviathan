@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Stop directory discovery at ancestor symlink cycles instead of repeatedly indexing the same files.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added
