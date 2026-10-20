@@ -231,6 +231,10 @@ fn read_delimited(
     let headers: Vec<String> = csv.headers()?.iter().map(|h| h.trim().to_string()).collect();
     for row in csv.records() {
         let item = match row {
+            Ok(row) if row.len() > headers.len() => Item::Bad {
+                line: row.position().map(|p| p.line()).unwrap_or(0),
+                error: format!("record has {} fields but header has {}", row.len(), headers.len()),
+            },
             Ok(row) => {
                 let line = row.position().map(|p| p.line()).unwrap_or(0);
                 let mut map = Map::new();
@@ -304,4 +308,34 @@ fn read_sqlite(path: &Path, sql: Option<&str>, on: &mut dyn FnMut(Item) -> Resul
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn delimited_rows_with_surplus_cells_are_counted_as_bad() {
+        for delimiter in [b',', b'\t'] {
+            let input = format!("id{d}text\n1{d}valid\n2{d}unquoted{d}extra\n3\n", d = delimiter as char);
+            let mut records = Vec::new();
+            let mut bad = Vec::new();
+            read_delimited(Box::new(Cursor::new(input.into_bytes())), delimiter, &mut |item| {
+                match item {
+                    Item::Record { value, .. } => records.push(value),
+                    Item::Bad { line, error } => bad.push((line, error)),
+                }
+                Ok(true)
+            })
+            .unwrap();
+            assert_eq!(bad.len(), 1, "surplus cells must not silently disappear");
+            assert_eq!(bad[0].0, 3);
+            assert!(bad[0].1.contains("3") && bad[0].1.contains("2"));
+            assert_eq!(
+                records,
+                [serde_json::json!({"id": "1", "text": "valid"}), serde_json::json!({"id": "3"})]
+            );
+        }
+    }
 }

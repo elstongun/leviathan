@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Count delimited records with surplus cells as unusable instead of silently discarding their extra values.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added
