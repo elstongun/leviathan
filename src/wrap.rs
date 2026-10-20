@@ -935,6 +935,21 @@ fn is_ours(v: &Value) -> bool {
     v.to_string().contains("memory briefing")
 }
 
+/// Remove our commands without discarding other hooks in a shared matcher group.
+fn remove_our_hooks(list: &mut Vec<Value>) {
+    list.retain_mut(|entry| {
+        if let Some(hooks) = entry.get_mut("hooks").and_then(Value::as_array_mut) {
+            if hooks.iter().any(is_ours) {
+                hooks.retain(|hook| !is_ours(hook));
+                return !hooks.is_empty();
+            }
+            true
+        } else {
+            !is_ours(entry)
+        }
+    });
+}
+
 /// Add our hook entry to every event list in `patch`, replacing an earlier
 /// Leviathan entry rather than duplicating it.
 fn merge_hooks(base: &mut Value, patch: &Value) {
@@ -950,7 +965,7 @@ fn merge_hooks(base: &mut Value, patch: &Value) {
                         *list = json!([]);
                     }
                     let list = list.as_array_mut().expect("array");
-                    list.retain(|e| !is_ours(e));
+                    remove_our_hooks(list);
                     list.extend(entries.as_array().cloned().unwrap_or_default());
                 }
             }
@@ -960,7 +975,7 @@ fn merge_hooks(base: &mut Value, patch: &Value) {
                     *list = json!([]);
                 }
                 let list = list.as_array_mut().expect("array");
-                list.retain(|e| !is_ours(e));
+                remove_our_hooks(list);
                 list.extend(entries.iter().cloned());
             }
             _ => {

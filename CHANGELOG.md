@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve unrelated commands in shared hook groups when updating Leviathan with `wrap --apply`.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added
