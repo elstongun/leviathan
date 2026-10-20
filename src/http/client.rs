@@ -84,8 +84,10 @@ fn post(
             }
             data.clear();
         };
-        for line in reader.lines() {
+        for (number, line) in reader.lines().enumerate() {
             let line = line?;
+            // UTF-8 event streams may start with one byte-order mark.
+            let line = if number == 0 { line.strip_prefix('\u{feff}').unwrap_or(&line) } else { &line };
             if line.is_empty() {
                 flush(&mut data, &mut messages);
             } else if let Some(d) = line.strip_prefix("data:") {
