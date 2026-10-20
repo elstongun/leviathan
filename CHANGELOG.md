@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep relative input files resolvable when `init -o` saves a configuration in another directory.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added

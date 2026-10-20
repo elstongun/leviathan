@@ -316,6 +316,18 @@ fn run(cli: Cli) -> Result<u8> {
                 proposal.config.source.format = f;
             }
             proposal.config.source.sql.clone_from(&sql);
+            // Source arguments are relative to the invocation directory, whereas
+            // saved configuration paths are relative to the configuration file.
+            if !to_stdout && output.parent().is_some_and(|dir| !dir.as_os_str().is_empty()) {
+                for path in &mut proposal.config.source.paths {
+                    if path != "-" && Path::new(path).is_relative() {
+                        *path = std::fs::canonicalize(&*path)
+                            .with_context(|| format!("resolve source {path}"))?
+                            .display()
+                            .to_string();
+                    }
+                }
+            }
             let toml = infer::to_toml(&proposal);
             if cli.json {
                 println!("{}", serde_json::to_string(&proposal)?);
