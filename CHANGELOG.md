@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve explicit source format and SQLite queries in configuration written by `init`.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added

@@ -516,8 +516,20 @@ pub fn to_toml(p: &Proposal) -> String {
     let _ = writeln!(out, "group = {}    # noun for one group\n", q(&c.about.group));
     let _ = writeln!(out, "[source]");
     let _ = writeln!(out, "paths = {}", list(&c.source.paths));
-    let _ = writeln!(out, "# format = \"auto\"   # auto | jsonl | json | csv | tsv | sqlite");
-    let _ = writeln!(out, "# sql = \"SELECT * FROM table\"   # SQLite sources\n");
+    if c.source.format == crate::config::Format::Auto {
+        let _ = writeln!(out, "# format = \"auto\"   # auto | jsonl | json | csv | tsv | sqlite");
+    } else {
+        let format = toml::Value::try_from(c.source.format).expect("format is serializable");
+        let _ = writeln!(out, "format = {format}");
+    }
+    match &c.source.sql {
+        Some(sql) => {
+            let _ = writeln!(out, "sql = {}\n", q(sql));
+        }
+        None => {
+            let _ = writeln!(out, "# sql = \"SELECT * FROM table\"   # SQLite sources\n");
+        }
+    }
     let _ = writeln!(out, "[fields]");
     out.push_str(&opt("id", &f.id));
     if f.id.is_none() {
@@ -648,5 +660,23 @@ mod tests {
         assert_eq!(fields.date, ["Order Date"]);
         assert_eq!(fields.filters, ["Status"]);
         assert_eq!((p.config.about.record.as_str(), p.config.about.group.as_str()), ("order", "customer"));
+    }
+    #[test]
+    fn proposed_toml_preserves_explicit_source_options() {
+        for format in [crate::config::Format::Tsv, crate::config::Format::Sqlite, crate::config::Format::Auto]
+        {
+            let mut config = Config::default();
+            config.source.paths = vec!["export.txt".into()];
+            config.source.format = format;
+            config.source.sql = Some("SELECT id, text FROM \"selected table\" WHERE text != 'a\\b'".into());
+            let proposal = Proposal {
+                config,
+                reasons: Vec::new(),
+                profile: Profile { sampled: 1, skipped: 0, fields: Vec::new() },
+            };
+            let generated = to_toml(&proposal);
+            let parsed: Config = toml::from_str(&generated).unwrap();
+            assert_eq!(parsed.source, proposal.config.source);
+        }
     }
 }
