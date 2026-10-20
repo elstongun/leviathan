@@ -326,3 +326,23 @@ fn a_data_index_is_not_mistaken_for_memory() {
     drop(conn);
     assert!(Memory::open(&path, Settings::default()).is_err());
 }
+
+#[test]
+fn markdown_import_keeps_wrapped_list_item_qualifiers() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut m = open(tmp.path());
+    let md = "---\ntitle: Synthetic\n---\n# Routing\n- Use staging\n  only; never production\n- [ ] Keep backups\n  before migrations\n1. Run verification\n   before release\n\nAn unrelated paragraph.\n```text\n- An example only\n```\n# Team\n* Keep feedback private\n  until approved\n";
+    let report = m.import_markdown(md, None, "synthetic.md").unwrap();
+    assert_eq!((report.read, report.created), (4, 4));
+    let mut bytes = Vec::new();
+    m.export(&mut bytes).unwrap();
+    let rows: Vec<serde_json::Value> =
+        String::from_utf8(bytes).unwrap().lines().map(|line| serde_json::from_str(line).unwrap()).collect();
+    assert_eq!(rows[0]["text"], "Use staging only; never production");
+    assert_eq!(rows[1]["text"], "Keep backups before migrations");
+    assert_eq!(rows[2]["text"], "Run verification before release");
+    assert_eq!(rows[3]["text"], "Keep feedback private until approved");
+    assert_eq!(rows[0]["subject"], "Routing");
+    assert_eq!(rows[3]["subject"], "Team");
+    assert_eq!(rows[3]["source"], "synthetic.md");
+}

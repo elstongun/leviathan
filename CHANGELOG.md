@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep indented continuation lines with Markdown list items when importing memory notes.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added

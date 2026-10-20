@@ -744,7 +744,8 @@ impl Memory {
         let mut heading: Option<String> = None;
         let mut fence: Option<&str> = None;
         let mut front_matter = text.trim_start().starts_with("---");
-        for (n, line) in text.lines().enumerate() {
+        let mut lines = text.lines().enumerate().peekable();
+        while let Some((n, line)) = lines.next() {
             let t = line.trim();
             if front_matter {
                 front_matter = !(n > 0 && t == "---");
@@ -765,19 +766,32 @@ impl Memory {
                 heading = (!h.is_empty()).then(|| crate::text::truncate(h, 100));
                 continue;
             }
-            let item = t.strip_prefix("- ").or_else(|| t.strip_prefix("* ")).or_else(|| {
-                t.split_once(". ").filter(|(n, _)| n.parse::<u32>().is_ok()).map(|(_, rest)| rest)
-            });
-            let Some(item) = item.map(|i| i.trim_start_matches("[ ] ").trim_start_matches("[x] ").trim())
-            else {
-                continue;
-            };
+            let Some(raw_item) = markdown_item(t) else { continue };
+            let content_indent = line.len() - line.trim_start().len() + t.len() - raw_item.len();
+            let mut item = raw_item.trim_start_matches("[ ] ").trim_start_matches("[x] ").trim().to_string();
             if item.is_empty() {
                 continue;
             }
+            // Keep the wrapped paragraph attached to this item. Structural lines
+            // are left for the outer scanner, including nested list items.
+            while let Some((_, next)) = lines.peek() {
+                let trimmed = next.trim();
+                if trimmed.is_empty()
+                    || markdown_item(trimmed).is_some()
+                    || trimmed.starts_with('#')
+                    || trimmed.starts_with("```")
+                    || trimmed.starts_with("~~~")
+                    || next.len() - next.trim_start().len() < content_indent
+                {
+                    break;
+                }
+                item.push('\n');
+                item.push_str(trimmed);
+                lines.next();
+            }
             report.read += 1;
             let req = Remember {
-                text: crate::text::truncate(item, self.settings.max_chars),
+                text: crate::text::truncate(&item, self.settings.max_chars),
                 subject: heading.clone(),
                 source: Some(source.to_string()),
                 ns: ns.map(str::to_string),
@@ -792,7 +806,7 @@ impl Memory {
                 Err(err) => {
                     report.skipped += 1;
                     if report.errors.len() < 5 {
-                        report.errors.push(format!("{}: {err}", crate::text::truncate(item, 60)));
+                        report.errors.push(format!("{}: {err}", crate::text::truncate(&item, 60)));
                     }
                 }
             }
@@ -840,6 +854,12 @@ impl Memory {
         }
         Ok(report)
     }
+}
+
+fn markdown_item(text: &str) -> Option<&str> {
+    text.strip_prefix("- ").or_else(|| text.strip_prefix("* ")).or_else(|| {
+        text.split_once(". ").filter(|(number, _)| number.parse::<u32>().is_ok()).map(|(_, rest)| rest)
+    })
 }
 
 fn restrict_permissions(path: &Path) {
