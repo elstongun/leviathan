@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Accept a leading UTF-8 byte-order mark in remote SSE replies without changing payload text.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added
