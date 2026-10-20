@@ -233,7 +233,7 @@ impl Mapping {
         let mut seen = HashSet::new();
         for p in &self.filters {
             for v in self.strings(p, record) {
-                let v: String = v.trim().chars().take(200).collect();
+                let v = v.trim().to_string();
                 if seen.insert((p.raw.clone(), v.to_lowercase())) {
                     facets.push((p.raw.clone(), v));
                 }
