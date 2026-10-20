@@ -116,8 +116,11 @@ pub fn call_tool(url: &str, token: Option<&str>, name: &str, args: &Value) -> Re
     if !(200..300).contains(&posted.status) {
         bail!("{url}: HTTP {} {}", posted.status, posted.body.chars().take(200).collect::<String>());
     }
-    let reply =
-        posted.messages.into_iter().find(|m| m.get("id").is_some()).context("no reply from the server")?;
+    let reply = posted
+        .messages
+        .into_iter()
+        .find(|m| m.get("id") == body.get("id") && m.get("method").is_none())
+        .context("no reply from the server")?;
     if let Some(err) = reply.get("error") {
         bail!("{}", err["message"].as_str().unwrap_or("remote error"));
     }
