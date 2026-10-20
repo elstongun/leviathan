@@ -188,3 +188,12 @@ proposal with per-field statistics to reason from.
   complete config. Used by the test suite.
 - [`examples/maintenance`](../examples/maintenance): the config for the
   synthetic maintenance log used by the benchmark.
+
+## GitHub issue exports
+
+[`examples/github-issues`](../examples/github-issues/) provides a tested
+mapping and synthetic `gh issue list --json` export. It uses stable issue
+URLs as IDs, milestone titles for group scoping, nested label names and
+author logins for facets, and the issue's last-updated timestamp for dates.
+The recipe covers export limits, unassigned milestones and refreshing an
+index without treating a partial export as a deletion list.

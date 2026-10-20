@@ -1,0 +1,18 @@
+[about]
+name = "GitHub issue export"
+description = "Issue titles and bodies exported by gh issue list"
+record = "issue"
+group = "milestone"
+
+[source]
+paths = ["issues.json"]
+format = "json"
+
+[fields]
+id = "url"
+title = "title"
+text = ["title", "body", "labels[].name"]
+group = "milestone.title"
+date = "updatedAt"
+filters = ["state", "labels[].name", "author.login"]
+display = ["number", "state", "labels[].name"]
