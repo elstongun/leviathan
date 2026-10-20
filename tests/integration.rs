@@ -408,3 +408,28 @@ fn mcp_round_trip() {
     drop(stdin);
     assert!(child.wait().unwrap().success());
 }
+
+#[test]
+fn init_config_in_another_directory_keeps_sources_resolvable() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("data")).unwrap();
+    std::fs::create_dir(dir.path().join("config")).unwrap();
+    let data = dir.path().join("data/records.jsonl");
+    std::fs::write(&data, "{\"id\": \"A1\", \"body\": \"A searchable synthetic record\"}\n").unwrap();
+    let init = Command::new(env!("CARGO_BIN_EXE_leviathan"))
+        .current_dir(dir.path())
+        .args(["init", "data/records.jsonl", "-o", "config/leviathan.toml"])
+        .output()
+        .unwrap();
+    assert!(init.status.success(), "{}", String::from_utf8_lossy(&init.stderr));
+    let config = Config::load(&dir.path().join("config/leviathan.toml")).unwrap();
+    let resolved = Path::new(&config.source.paths[0]).canonicalize().unwrap();
+    assert_eq!(resolved, data.canonicalize().unwrap());
+    let indexed = Command::new(env!("CARGO_BIN_EXE_leviathan"))
+        .current_dir(dir.path())
+        .args(["--index", "index.db", "index", "--config", "config/leviathan.toml"])
+        .output()
+        .unwrap();
+    assert!(indexed.status.success(), "{}", String::from_utf8_lossy(&indexed.stderr));
+    assert!(dir.path().join("index.db").exists());
+}
