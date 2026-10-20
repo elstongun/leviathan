@@ -1,0 +1,89 @@
+[
+  {
+    "url": "https://github.com/example/fictional-app/issues/101",
+    "number": 101,
+    "title": "Retry stalled artifact uploads",
+    "body": "Upload retries should resume from the last acknowledged chunk after a connection reset.",
+    "state": "OPEN",
+    "createdAt": "2026-01-01T10:00:00Z",
+    "updatedAt": "2026-01-02T12:00:00Z",
+    "author": {
+      "id": "SYNTHETIC_sample-alex",
+      "is_bot": false,
+      "login": "sample-alex",
+      "name": ""
+    },
+    "milestone": {
+      "number": 1,
+      "title": "Release 1.0",
+      "description": "Synthetic release milestone",
+      "dueOn": null
+    },
+    "labels": [
+      {
+        "id": "SYNTHETIC_bug",
+        "name": "bug",
+        "description": "Synthetic label",
+        "color": "abcdef"
+      },
+      {
+        "id": "SYNTHETIC_network",
+        "name": "network",
+        "description": "Synthetic label",
+        "color": "abcdef"
+      }
+    ]
+  },
+  {
+    "url": "https://github.com/example/fictional-app/issues/102",
+    "number": 102,
+    "title": "Repair command palette keyboard focus",
+    "body": "Keyboard navigation skips the second item in the command palette.",
+    "state": "CLOSED",
+    "createdAt": "2026-01-01T10:00:00Z",
+    "updatedAt": "2026-01-03T12:00:00Z",
+    "author": {
+      "id": "SYNTHETIC_sample-morgan",
+      "is_bot": false,
+      "login": "sample-morgan",
+      "name": ""
+    },
+    "milestone": {
+      "number": 2,
+      "title": "Release 1.1",
+      "description": "Synthetic release milestone",
+      "dueOn": null
+    },
+    "labels": [
+      {
+        "id": "SYNTHETIC_bug",
+        "name": "bug",
+        "description": "Synthetic label",
+        "color": "abcdef"
+      },
+      {
+        "id": "SYNTHETIC_accessibility",
+        "name": "accessibility",
+        "description": "Synthetic label",
+        "color": "abcdef"
+      }
+    ]
+  },
+  {
+    "url": "https://github.com/example/fictional-app/issues/103",
+    "number": 103,
+    "title": "Document offline cache eviction",
+    "body": "Explain how the offline cache evicts expired entries when storage is full.",
+    "state": "OPEN",
+    "createdAt": "2026-01-01T10:00:00Z",
+    "updatedAt": "2026-01-04T12:00:00Z",
+    "author": {
+      "id": "SYNTHETIC_sample-alex",
+      "is_bot": false,
+      "login": "sample-alex",
+      "name": ""
+    },
+    "milestone": null,
+    "labels": []
+  }
+]
