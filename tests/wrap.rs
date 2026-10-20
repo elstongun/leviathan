@@ -224,3 +224,37 @@ fn briefing_hook_formats_match_each_agent() {
     assert!(out.status.success());
     assert!(stdout(&out).is_empty());
 }
+
+#[test]
+fn apply_preserves_other_commands_in_a_shared_hook_group() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    let proj = dir.path().join("proj");
+    std::fs::create_dir_all(proj.join(".claude")).unwrap();
+    std::fs::create_dir_all(&home).unwrap();
+    let path = proj.join(".claude/settings.json");
+    let original = serde_json::json!({"hooks": {"SessionStart": [{
+        "matcher": "startup", "hooks": [
+            {"type": "command", "command": "old-leviathan memory briefing", "timeout": 15},
+            {"type": "command", "command": "echo project-startup", "timeout": 30}
+        ]
+    }]}});
+    std::fs::write(&path, original.to_string()).unwrap();
+    let args = ["--memory", "wrap", "claude", "--hooks", "--apply", "--project"];
+    for _ in 0..2 {
+        let output = run(&home, &proj, &args);
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let settings: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let groups = settings["hooks"]["SessionStart"].as_array().unwrap();
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0]["matcher"], "startup");
+        assert_eq!(
+            groups[0]["hooks"],
+            serde_json::json!([
+                {"type": "command", "command": "echo project-startup", "timeout": 30}
+            ])
+        );
+        assert_eq!(groups[1]["hooks"].as_array().unwrap().len(), 1);
+        assert!(!settings.to_string().contains("old-leviathan"));
+    }
+}
