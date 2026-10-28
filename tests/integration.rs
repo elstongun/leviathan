@@ -389,7 +389,13 @@ fn mcp_round_trip() {
     let tools = rpc(json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})).unwrap();
     let names: Vec<&str> =
         tools["result"]["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
-    assert_eq!(names, ["search", "resolve_group", "get", "describe"]);
+    assert_eq!(names, ["search", "resolve_group", "get", "describe", "aggregate"]);
+
+    let counted = rpc(json!({"jsonrpc": "2.0", "id": 6, "method": "tools/call",
+        "params": {"name": "aggregate", "arguments": {"by": "group", "format": "json"}}}))
+    .unwrap();
+    let counted: Value = serde_json::from_str(counted["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!((counted["records"].as_i64(), counted["buckets"].as_i64()), (Some(24), Some(4)));
 
     let hit = rpc(json!({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
         "params": {"name": "search", "arguments": {"group": "Acme", "query": "sso", "where": {"priority": ["urgent", "high"]}}}}))
@@ -407,4 +413,107 @@ fn mcp_round_trip() {
 
     drop(stdin);
     assert!(child.wait().unwrap().success());
+}
+
+// ---- aggregate ----------------------------------------------------------------
+
+use leviathan::query::{AggregateRequest, Metric};
+
+fn agg(by: Option<&str>) -> AggregateRequest {
+    AggregateRequest { by: by.map(str::to_string), limit: 50, ..Default::default() }
+}
+
+#[test]
+fn aggregate_counts_every_record_by_group_and_filter() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = open(&build_tickets(tmp.path()));
+    let all = store.aggregate(&agg(None)).unwrap();
+    assert_eq!((all.status, all.records, all.value), (Status::Ok, 24, 24.0));
+
+    let by_group = store.aggregate(&agg(Some("group"))).unwrap();
+    assert_eq!(by_group.buckets, 4);
+    assert_eq!(by_group.rows.iter().map(|r| r.records).sum::<i64>(), 24);
+    assert!(by_group.rows.windows(2).all(|w| w[0].value >= w[1].value), "largest first");
+    let acme = by_group.rows.iter().find(|r| r.key == "C-ACME").unwrap();
+    assert_eq!(acme.name.as_deref(), Some("Acme Corp"));
+
+    // Filters and scoping narrow the same way search does.
+    let mut open_acme = agg(None);
+    open_acme.group = Some("acme".into());
+    open_acme.filters = vec![("status".into(), "closed".into())];
+    let closed = store.aggregate(&open_acme).unwrap();
+    let listed = store.search(&SearchRequest {
+        group: Some("acme".into()), filters: vec![("status".into(), "closed".into())], limit: 50, ..Default::default()
+    }).unwrap();
+    assert_eq!(closed.records, listed.total_matches);
+
+    // A multi-valued filter puts a record in several buckets but counts it once.
+    let tags = store.aggregate(&agg(Some("tags[]"))).unwrap();
+    assert_eq!(tags.records, 24);
+    assert!(tags.rows.iter().map(|r| r.records).sum::<i64>() >= 24);
+}
+
+#[test]
+fn aggregate_matches_group_names_by_whole_words() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = open(&build_tickets(tmp.path()));
+    let mut req = agg(Some("group"));
+    req.group_contains = Some("Acme".into());
+    let out = store.aggregate(&req).unwrap();
+    assert_eq!(out.rows.iter().map(|r| r.key.as_str()).collect::<Vec<_>>(), ["C-ACME"]);
+    req.group_contains = Some("Acm".into());
+    assert_eq!(store.aggregate(&req).unwrap().buckets, 0, "part of a word is not a word");
+    req.group_contains = Some("c-ac".into());
+    assert_eq!(store.aggregate(&req).unwrap().buckets, 1, "a key prefix matches");
+}
+
+#[test]
+fn aggregate_sums_averages_and_ranges_a_numeric_field() {
+    let tmp = tempfile::tempdir().unwrap();
+    let data = tmp.path().join("jobs.jsonl");
+    std::fs::write(
+        &data,
+        [
+            r#"{"id":"j1","site":"north","kind":"repair","opened":"2024-01-05","hours":2.5,"labor":[{"h":1},{"h":1.5}]}"#,
+            r#"{"id":"j2","site":"north","kind":"repair","opened":"2024-02-01","hours":4,"labor":[{"h":4}]}"#,
+            r#"{"id":"j3","site":"south","kind":"service","opened":"2025-03-01","hours":"1,000","labor":[]}"#,
+            r#"{"id":"j4","site":"south","kind":"repair","opened":"2025-03-09","hours":null}"#,
+        ]
+        .join("\n"),
+    )
+    .unwrap();
+    let toml = tmp.path().join("leviathan.toml");
+    std::fs::write(&toml, "[fields]\nid = \"id\"\ngroup = \"site\"\ndate = \"opened\"\nfilters = [\"kind\"]\n").unwrap();
+    let cfg = Config::load(&toml).unwrap();
+    let sources = source::discover(&[data], Format::Auto).unwrap();
+    let index = tmp.path().join("jobs.db");
+    index::build(&index, &sources, &cfg, false, quiet()).unwrap();
+    let store = open(&index);
+
+    let mut req = agg(Some("group"));
+    req.metric = Metric::Sum;
+    req.field = Some("hours".into());
+    let sum = store.aggregate(&req).unwrap();
+    assert_eq!(sum.value, 1006.5, "strings with thousands separators count, nulls do not");
+    assert_eq!(sum.rows[0].key, "south");
+    req.metric = Metric::Avg;
+    req.by = Some("year".into());
+    let avg = store.aggregate(&req).unwrap();
+    assert_eq!(avg.rows.iter().map(|r| (r.key.as_str(), r.value)).collect::<Vec<_>>(), [("2025", 1000.0), ("2024", 3.25)]);
+    req.by = None;
+    req.metric = Metric::Max;
+    req.field = Some("labor[].h".into());
+    req.filters = vec![("kind".into(), "repair".into())];
+    assert_eq!(store.aggregate(&req).unwrap().value, 4.0);
+    req.metric = Metric::Min;
+    req.since = Some("2024-02".into());
+    req.until = Some("2024-02".into());
+    let min = store.aggregate(&req).unwrap();
+    assert_eq!((min.records, min.value), (1, 4.0));
+
+    let mut bad = agg(Some("site"));
+    assert_eq!(store.aggregate(&bad).unwrap().status, Status::BadRequest, "by must be group, a date unit, or a filter");
+    bad.by = None;
+    bad.metric = Metric::Sum;
+    assert_eq!(store.aggregate(&bad).unwrap().status, Status::BadRequest, "sum needs a field");
 }

@@ -22,7 +22,7 @@ use serde::Serialize;
 
 use crate::card::{Card, CardOptions};
 use crate::config::{About, Config, Fields, Rank, plural};
-use crate::fields::Mapping;
+use crate::fields::{FieldPath, Mapping};
 use crate::index::{check_schema, meta, open_ro, stored_config};
 use crate::text::{Query, facet_token, group_token, normalize_bound, normalize_name};
 
@@ -633,6 +633,360 @@ impl Store {
             skipped_lines: self.meta_i64("skipped_lines")?,
             schema_version: self.meta("schema_version")?.unwrap_or_default(),
         })
+    }
+}
+
+// -------------------------------------------------------------- aggregate
+
+/// What to compute per bucket.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, clap::ValueEnum)]
+#[serde(rename_all = "snake_case")]
+pub enum Metric {
+    /// Records per bucket.
+    #[default]
+    Count,
+    Sum,
+    Avg,
+    Min,
+    Max,
+}
+
+impl Metric {
+    pub fn parse(raw: &str) -> Option<Self> {
+        Some(match raw.trim().to_ascii_lowercase().as_str() {
+            "count" => Self::Count,
+            "sum" => Self::Sum,
+            "avg" | "mean" | "average" => Self::Avg,
+            "min" => Self::Min,
+            "max" => Self::Max,
+            _ => return None,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AggregateRequest {
+    /// Words the records must match (optional).
+    pub query: String,
+    /// One group, resolved like `search`.
+    pub group: Option<String>,
+    /// Every group whose key or name contains this text.
+    pub group_contains: Option<String>,
+    pub filters: Vec<(String, String)>,
+    pub since: Option<String>,
+    pub until: Option<String>,
+    /// `group`, `year`, `month`, `day`, or a filter field; none for totals.
+    pub by: Option<String>,
+    pub metric: Metric,
+    /// Numeric field for sum/avg/min/max.
+    pub field: Option<String>,
+    pub limit: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AggregateRow {
+    pub key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    pub records: i64,
+    pub value: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AggregateOutcome {
+    pub status: Status,
+    pub metric: Metric,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub by: Option<String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub query: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<GroupMatch>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub candidates: Vec<GroupMatch>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_contains: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub filters: Vec<Filter>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub since: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub until: Option<String>,
+    /// Records that matched.
+    pub records: i64,
+    /// The metric over every matched record (the count, for `count`).
+    pub value: f64,
+    /// Distinct bucket keys, before `limit`.
+    pub buckets: i64,
+    /// Largest value first.
+    pub rows: Vec<AggregateRow>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub notes: Vec<String>,
+    #[serde(skip)]
+    pub about: About,
+}
+
+/// Running numbers for one bucket.
+#[derive(Default)]
+struct Acc {
+    records: i64,
+    n: i64,
+    sum: f64,
+    min: f64,
+    max: f64,
+    name: Option<String>,
+}
+
+impl Acc {
+    fn add(&mut self, v: f64) {
+        if self.n == 0 || v < self.min {
+            self.min = v;
+        }
+        if self.n == 0 || v > self.max {
+            self.max = v;
+        }
+        self.n += 1;
+        self.sum += v;
+    }
+
+    fn value(&self, metric: Metric) -> f64 {
+        let round = |v: f64| (v * 1e6).round() / 1e6;
+        match metric {
+            Metric::Count => self.records as f64,
+            Metric::Sum => round(self.sum),
+            Metric::Avg if self.n > 0 => round(self.sum / self.n as f64),
+            Metric::Min | Metric::Max if self.n == 0 => 0.0,
+            Metric::Min => self.min,
+            Metric::Max => self.max,
+            Metric::Avg => 0.0,
+        }
+    }
+}
+
+fn number(v: &serde_json::Value) -> Option<f64> {
+    match v {
+        serde_json::Value::Number(n) => n.as_f64(),
+        serde_json::Value::String(s) => s.trim().replace(',', "").parse().ok(),
+        _ => None,
+    }
+}
+
+impl Store {
+    /// Count records, or sum/average/min/max a numeric field, over the
+    /// records a search would select, optionally per group, date bucket or
+    /// filter value. Exact: every matching record is counted, none ranked.
+    pub fn aggregate(&self, req: &AggregateRequest) -> Result<AggregateOutcome> {
+        let about = self.config().about.clone();
+        let limit = req.limit.clamp(1, 200);
+        let mut out = AggregateOutcome {
+            status: Status::Ok,
+            metric: req.metric,
+            field: req.field.clone(),
+            by: req.by.clone(),
+            query: req.query.clone(),
+            group: None,
+            candidates: Vec::new(),
+            group_contains: req.group_contains.clone().filter(|s| !s.trim().is_empty()),
+            filters: req.filters.iter().map(|(f, v)| Filter { field: f.clone(), value: v.clone() }).collect(),
+            since: None,
+            until: None,
+            records: 0,
+            value: 0.0,
+            buckets: 0,
+            rows: Vec::new(),
+            notes: Vec::new(),
+            about,
+        };
+        let bad = |mut out: AggregateOutcome, note: String| {
+            out.status = Status::BadRequest;
+            out.notes.push(note);
+            Ok(out)
+        };
+
+        let filterable: Vec<&str> = self.mapping.filters.iter().map(|p| p.raw.as_str()).collect();
+        for (field, _) in &req.filters {
+            if !filterable.contains(&field.as_str()) {
+                return bad(out, format!("`{field}` is not a filter field; filterable: {}", filterable.join(", ")));
+            }
+        }
+        for raw in [&req.since, &req.until].into_iter().flatten() {
+            if normalize_bound(raw).is_none() {
+                return bad(out, format!("unrecognized date {raw:?}; use YYYY, YYYY-MM or YYYY-MM-DD"));
+            }
+        }
+        out.since = req.since.as_deref().and_then(normalize_bound);
+        out.until = req.until.as_deref().and_then(normalize_bound);
+        if (out.since.is_some() || out.until.is_some()) && !self.mapping.has_date() {
+            return bad(out, "this index has no date field, so since/until cannot apply".into());
+        }
+        let field = match (req.metric, req.field.as_deref().map(str::trim).filter(|f| !f.is_empty())) {
+            (Metric::Count, _) => None,
+            (_, Some(f)) => Some(FieldPath::parse(f)),
+            (_, None) => return bad(out, "sum, avg, min and max need `field`, the numeric field to aggregate".into()),
+        };
+        // How each record is keyed.
+        enum By {
+            Total,
+            Group,
+            Date(usize),
+            Facet(String),
+        }
+        let by = match req.by.as_deref().map(str::trim).filter(|b| !b.is_empty()) {
+            None => By::Total,
+            Some("group") => By::Group,
+            Some("year") => By::Date(4),
+            Some("month") => By::Date(7),
+            Some("day") => By::Date(10),
+            Some(f) if filterable.contains(&f) => By::Facet(f.to_string()),
+            Some(f) => {
+                return bad(
+                    out,
+                    format!("cannot aggregate by `{f}`; use group, year, month, day, or a filter field: {}", filterable.join(", ")),
+                );
+            }
+        };
+        if matches!(by, By::Group) && !self.mapping.has_group() {
+            return bad(out, "this index has no group field, so it cannot aggregate by group".into());
+        }
+        if matches!(by, By::Date(_)) && !self.mapping.has_date() {
+            return bad(out, "this index has no date field, so it cannot aggregate by date".into());
+        }
+
+        if let Some(group) = &req.group {
+            if !self.mapping.has_group() {
+                return bad(out, "this index has no group field; aggregate without one".into());
+            }
+            match self.pick(group)? {
+                Pick::One(m) => out.group = Some(m),
+                Pick::Many(c) => {
+                    out.status = Status::AmbiguousGroup;
+                    out.notes.push(format!("{} groups match {group:?}; retry with one exact key", c.len()));
+                    out.candidates = c;
+                    return Ok(out);
+                }
+                Pick::None => {
+                    out.status = Status::UnknownGroup;
+                    out.notes.push(format!("no group matches {group:?}; try resolve_group, or group_contains"));
+                    return Ok(out);
+                }
+            }
+        }
+
+        // The records in scope: the same group, filters, words and dates as search.
+        let plan = Plan {
+            group: None,
+            scope: Scope::All,
+            filters: Vec::new(),
+            since: out.since.clone(),
+            until: out.until.clone(),
+        };
+        let (dates, mut args) = plan.date_sql(1);
+        let mut clauses = vec!["1".to_string()];
+        if !dates.is_empty() {
+            clauses.push(dates.trim_start_matches("AND ").to_string());
+        }
+        if let Some(g) = &out.group {
+            args.push(SqlValue::Text(g.key.clone()));
+            clauses.push(format!("r.grp = ?{}", args.len()));
+        }
+        if let Some(text) = &out.group_contains {
+            // Whole words of the name ("Hall A" is not "Hall AA"), or the
+            // start of the key ("AHU" for every AHU-*).
+            let escaped = normalize_name(text).replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+            args.push(SqlValue::Text(format!("% {escaped} %")));
+            args.push(SqlValue::Text(format!("{escaped}%")));
+            let (words, prefix) = (args.len() - 1, args.len());
+            clauses.push(format!(
+                "r.grp IN (SELECT key FROM groups WHERE (' ' || name_normalized || ' ') LIKE ?{words} ESCAPE '\\' \
+                 OR key_lower LIKE ?{prefix} ESCAPE '\\')"
+            ));
+        }
+        let query = Query::parse(&req.query);
+        let mut fts: Vec<String> = self.filter_clauses(&req.filters);
+        if let Some(positive) = query.fts() {
+            fts.push(format!("({positive})"));
+        } else if !req.query.trim().is_empty() {
+            out.notes.push("the query has no searchable words; it was ignored".into());
+        }
+        if !fts.is_empty() {
+            let mut expr = fts.join(" AND ");
+            if let (Some(_), Some(neg)) = (query.fts(), query.not_fts()) {
+                expr = format!("({expr}) NOT ({neg})");
+            }
+            args.push(SqlValue::Text(expr));
+            clauses.push(format!("r.rowid IN (SELECT rowid FROM record_fts WHERE record_fts MATCH ?{})", args.len()));
+        }
+        let where_sql = clauses.join(" AND ");
+
+        let (key_sql, from_sql) = match &by {
+            By::Total => ("''".to_string(), "records AS r".to_string()),
+            By::Group => ("coalesce(r.grp, '')".to_string(), "records AS r".to_string()),
+            By::Date(n) => (format!("coalesce(substr(r.date, 1, {n}), '')"), "records AS r".to_string()),
+            By::Facet(f) => {
+                args.push(SqlValue::Text(f.clone()));
+                let n = args.len();
+                (
+                    "json_extract(j.value, '$[1]')".to_string(),
+                    format!("records AS r JOIN json_each(coalesce(r.facets, '[]')) AS j ON json_extract(j.value, '$[0]') = ?{n}"),
+                )
+            }
+        };
+        let total: i64 = self.conn.query_row(
+            &format!("SELECT count(*) FROM records AS r WHERE {where_sql}"),
+            params_from_iter(args.iter().take(args.len() - usize::from(matches!(by, By::Facet(_))))),
+            |r| r.get(0),
+        )?;
+        out.records = total;
+
+        let mut buckets: BTreeMap<String, Acc> = BTreeMap::new();
+        let mut overall = Acc::default();
+        let doc_col = if field.is_some() { "r.doc" } else { "NULL" };
+        let sql = format!("SELECT {key_sql}, r.grp_name, {doc_col}, r.rowid FROM {from_sql} WHERE {where_sql}");
+        let mut stmt = self.conn.prepare(&sql)?;
+        let mut rows = stmt.query(params_from_iter(args.iter()))?;
+        // A record with several values of a facet lands in several buckets
+        // but counts once overall.
+        let mut counted = std::collections::HashSet::new();
+        while let Some(row) = rows.next()? {
+            let key: Option<String> = row.get(0)?;
+            let acc = buckets.entry(key.unwrap_or_default()).or_default();
+            acc.records += 1;
+            if acc.name.is_none() && matches!(by, By::Group) {
+                acc.name = row.get(1)?;
+            }
+            if let Some(path) = &field {
+                let doc: String = row.get(2)?;
+                let doc: serde_json::Value = serde_json::from_str(&doc)?;
+                let first = counted.insert(row.get::<_, i64>(3)?);
+                for v in path.values(&doc).into_iter().filter_map(number) {
+                    acc.add(v);
+                    if first {
+                        overall.add(v);
+                    }
+                }
+            }
+        }
+        overall.records = total;
+        out.value = overall.value(req.metric);
+        if !matches!(by, By::Total) {
+            out.buckets = buckets.len() as i64;
+            let mut rows: Vec<AggregateRow> = buckets
+                .into_iter()
+                .map(|(key, acc)| AggregateRow { value: acc.value(req.metric), records: acc.records, name: acc.name.clone(), key })
+                .collect();
+            rows.sort_by(|a, b| b.value.total_cmp(&a.value).then_with(|| a.key.cmp(&b.key)));
+            rows.truncate(limit);
+            out.rows = rows;
+        }
+        if let Some(path) = &field
+            && overall.n == 0
+            && total > 0
+        {
+            out.notes.push(format!("no numeric values at `{}` in the matched records", path.raw));
+        }
+        Ok(out)
     }
 }
 

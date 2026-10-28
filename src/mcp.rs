@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 use crate::card::CardOptions;
 use crate::config::plural;
 use crate::memory::{Forget, Kind, Memory, RecallRequest, Remember, Settings};
-use crate::query::{Scope, SearchRequest, Sort, Store};
+use crate::query::{AggregateRequest, Metric, Scope, SearchRequest, Sort, Store};
 use crate::render;
 
 pub const PROTOCOL_VERSIONS: &[&str] = &["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
@@ -149,6 +149,30 @@ fn data_tools(store: Option<&Store>) -> Vec<Value> {
             "inputSchema": {"type": "object", "properties": {"format": format}},
             "annotations": {"readOnlyHint": true, "openWorldHint": false}
         }),
+        json!({
+            "name": "aggregate",
+            "description": "Exact counts and totals over every matching record, from the index: how many, which group has the \
+                most, per year or month, per filter value. Count records, or sum/avg/min/max a numeric field, optionally \
+                grouped. Takes the same group, filters, words and dates as search. Use it instead of reading or scanning \
+                the data for any question about how many, how much, or which most.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "by": {"type": "string", "description": "group, year, month, day, or a filter field; omit for one total"},
+                    "metric": {"type": "string", "enum": ["count", "sum", "avg", "min", "max"], "description": "Default count"},
+                    "field": {"type": "string", "description": "Numeric field for sum/avg/min/max, e.g. hours or labor[].hours"},
+                    "group": {"type": "string", "description": "One group key or name"},
+                    "group_contains": {"type": "string", "description": "Every group whose key or name contains this, e.g. a site or prefix"},
+                    "where": {"type": "object", "additionalProperties": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]}, "description": "Exact filters, as in search"},
+                    "query": {"type": "string", "description": "Words the records must match (optional)"},
+                    "since": {"type": "string", "description": "YYYY, YYYY-MM or YYYY-MM-DD"},
+                    "until": {"type": "string", "description": "Inclusive, same formats"},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 200, "description": "Rows to return, largest first; default 20"},
+                    "format": format
+                }
+            },
+            "annotations": {"readOnlyHint": true, "openWorldHint": false}
+        }),
     ]
 }
 
@@ -263,6 +287,27 @@ fn bool_arg(args: &Value, k: &str) -> bool {
         Some(Value::String(s)) => matches!(s.trim(), "true" | "1" | "yes"),
         _ => false,
     }
+}
+
+/// `where` (an object of field to value or values) and `where_list`
+/// (`field=value` strings) as filter pairs.
+fn where_filters(args: &Value) -> Result<Vec<(String, String)>> {
+    let mut filters = Vec::new();
+    if let Some(Value::Object(map)) = args.get("where") {
+        for (field, v) in map {
+            match v {
+                Value::Array(items) => filters.extend(items.iter().filter_map(scalar).map(|s| (field.clone(), s))),
+                other => filters.extend(scalar(other).map(|s| (field.clone(), s))),
+            }
+        }
+    }
+    for f in list_arg(args, "where_list") {
+        match f.split_once('=') {
+            Some((k, v)) if !k.trim().is_empty() => filters.push((k.trim().into(), v.trim().into())),
+            _ => bail!("where_list items look like field=value, got {f:?}"),
+        }
+    }
+    Ok(filters)
 }
 
 /// An array of strings, or one comma-separated string.
@@ -386,7 +431,7 @@ impl Session {
             if self.memory_tools() == Some(MemoryTools::Recall) && matches!(name, "remember" | "forget") {
                 bail!("this server exposes memory read-only (--memory-tools recall)");
             }
-        } else if !self.data_enabled() && matches!(name, "search" | "resolve_group" | "get" | "describe") {
+        } else if !self.data_enabled() && matches!(name, "search" | "resolve_group" | "get" | "describe" | "aggregate") {
             bail!("no data index on this server; it serves memory only");
         }
 
@@ -404,25 +449,7 @@ impl Session {
                     Some("newest") => Sort::Newest,
                     Some(other) => bail!("unknown sort {other:?}"),
                 };
-                let mut filters = Vec::new();
-                if let Some(Value::Object(map)) = args.get("where") {
-                    for (field, v) in map {
-                        match v {
-                            Value::Array(items) => {
-                                filters.extend(items.iter().filter_map(scalar).map(|s| (field.clone(), s)))
-                            }
-                            other => filters.extend(scalar(other).map(|s| (field.clone(), s))),
-                        }
-                    }
-                }
-                for f in list_arg(args, "where_list") {
-                    match f.split_once('=') {
-                        Some((k, v)) if !k.trim().is_empty() => {
-                            filters.push((k.trim().into(), v.trim().into()))
-                        }
-                        _ => bail!("where_list items look like field=value, got {f:?}"),
-                    }
-                }
+                let filters = where_filters(args)?;
                 let req = SearchRequest {
                     group: text("group"),
                     query: text("query").unwrap_or_default(),
@@ -461,6 +488,26 @@ impl Session {
             "describe" => {
                 let d = self.store()?.describe(8)?;
                 Ok(if json_out { serde_json::to_string(&d)? } else { render::describe(&d) })
+            }
+            "aggregate" => {
+                let metric = match text("metric") {
+                    None => Metric::Count,
+                    Some(m) => Metric::parse(&m).ok_or_else(|| anyhow::anyhow!("unknown metric {m:?}; use count, sum, avg, min or max"))?,
+                };
+                let req = AggregateRequest {
+                    query: text("query").unwrap_or_default(),
+                    group: text("group"),
+                    group_contains: text("group_contains"),
+                    filters: where_filters(args)?,
+                    since: text("since"),
+                    until: text("until"),
+                    by: text("by"),
+                    metric,
+                    field: text("field"),
+                    limit: int("limit").unwrap_or(20),
+                };
+                let outcome = self.store()?.aggregate(&req)?;
+                Ok(if json_out { serde_json::to_string(&outcome)? } else { render::aggregate(&outcome) })
             }
             "remember" => {
                 let req = Remember {

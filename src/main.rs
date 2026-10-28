@@ -7,7 +7,7 @@ use leviathan::card::CardOptions;
 use leviathan::config::{Config, FieldFlags};
 use leviathan::index::{self, BuildOptions};
 use leviathan::mcp::{MemoryOptions, MemoryTools, ServerOptions};
-use leviathan::query::{Scope, SearchRequest, Sort, Status, Store};
+use leviathan::query::{AggregateRequest, Metric, Scope, SearchRequest, Sort, Status, Store};
 use leviathan::{infer, mcp, render, source, wrap};
 
 mod memory_cli;
@@ -150,6 +150,35 @@ enum Command {
     Get {
         #[arg(required = true)]
         ids: Vec<String>,
+    },
+    /// Exact counts and totals over matching records: how many, which group most, per year.
+    Aggregate {
+        /// Words the records must match (optional).
+        words: Vec<String>,
+        /// group, year, month, day, or a filter field; omit for one total.
+        #[arg(long)]
+        by: Option<String>,
+        /// count (default), sum, avg, min or max.
+        #[arg(long, value_enum, default_value_t)]
+        metric: Metric,
+        /// Numeric field for sum/avg/min/max (e.g. hours, labor[].hours).
+        #[arg(long)]
+        field: Option<String>,
+        /// One group key or name.
+        #[arg(short, long)]
+        group: Option<String>,
+        /// Every group whose name has these words, or whose key starts with them.
+        #[arg(long)]
+        group_contains: Option<String>,
+        #[arg(short = 'w', long = "where", value_name = "FIELD=VALUE")]
+        filters: Vec<String>,
+        #[arg(long)]
+        since: Option<String>,
+        #[arg(long)]
+        until: Option<String>,
+        /// Rows shown, largest first.
+        #[arg(short = 'n', long, default_value_t = 20)]
+        limit: usize,
     },
     /// What is in the index: fields, groups, filter values, dates, example calls.
     Describe {
@@ -365,6 +394,25 @@ fn run(cli: Cli) -> Result<u8> {
         Command::Search { words, find, sort, no_fallback } => {
             let req = request(find, words.join(" "), sort, !no_fallback)?;
             return search(cli.json, &open()?, &req);
+        }
+        Command::Aggregate { words, by, metric, field, group, group_contains, filters, since, until, limit } => {
+            let req = AggregateRequest {
+                query: words.join(" "),
+                group,
+                group_contains,
+                filters: parse_filters(&filters)?,
+                since,
+                until,
+                by,
+                metric,
+                field,
+                limit,
+            };
+            let out = open()?.aggregate(&req)?;
+            emit(cli.json, &out, || render::aggregate(&out))?;
+            if out.status != Status::Ok {
+                return Ok(if out.status == Status::BadRequest { 2 } else { EXIT_GROUP });
+            }
         }
         Command::Recent { find } => {
             let req = request(find, String::new(), Sort::Newest, false)?;

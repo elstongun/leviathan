@@ -104,8 +104,8 @@ paste it into `AGENTS.md` / `.cursor/rules`. Costs 0 tokens until used.
 [`skills/leviathan-memory`](skills/leviathan-memory/SKILL.md) does the same
 for memory.
 
-**MCP (optional):** `leviathan mcp` serves four read-only stdio tools
-(`search`, `resolve_group`, `get`, `describe`) whose descriptions include a
+**MCP (optional):** `leviathan mcp` serves five read-only stdio tools
+(`search`, `resolve_group`, `get`, `describe`, `aggregate`) whose descriptions include a
 summary of your dataset (~640 tokens per session). `leviathan wrap <agent>`
 prints the config for 24 agents (Claude Code, Codex, Cursor, VS Code /
 Copilot, Gemini CLI, Windsurf, Cline, Zed, JetBrains and more) and
@@ -151,6 +151,7 @@ benchmark: [docs/MEMORY.md](docs/MEMORY.md).
 |---|---|
 | `init` / `index` / `upsert` / `delete` | Propose a mapping / build / update / remove records |
 | `search [-g G] [words]` | Ranked records (`--scope`, `--where`, `--since`, `--until`, `-n`, `--offset`) |
+| `aggregate [--by B] [--metric M --field F]` | Exact counts or sum/avg/min/max over every matching record, in total or per group, `year`/`month`/`day` or filter value (`-g`, `--group-contains`, `--where`, `--since`, `--until`, `-n`) |
 | `recent [-g G]` · `resolve <g>` · `get <id…>` · `describe` | Newest · group candidates · full records · index summary |
 | `memory remember` / `recall` / `forget` / `briefing` | Write / ranked read / retire / session-start briefing (`--memory=PATH`) |
 | `memory list` / `history` / `stats` / `import` / `export` / `prune` | Browse / slot versions / counts / markdown or JSONL in / backup / clean up |

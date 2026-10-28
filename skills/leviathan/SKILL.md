@@ -39,6 +39,20 @@ Add `--json` for structured output, `-n` for more results (max 50), and
 `--offset` to page. The index comes from `--index` or `LEVIATHAN_INDEX`
 (default `./leviathan.db`).
 
+## Count and total
+
+For "how many", "how much" and "which ... most", aggregate instead of
+reading or scanning the data. It is exact over every matching record and
+takes the same group, filters, words and dates as search:
+
+```bash
+leviathan aggregate -g "<group>" --where status=open --since 2024           # how many
+leviathan aggregate --by group --where kind=breakdown --since 2023 --until 2023  # which group has the most
+leviathan aggregate --by month -g "<group>"                                 # per month (or year, day)
+leviathan aggregate --by priority --group-contains "Hall G"                 # per filter value, groups by name words
+leviathan aggregate --metric sum --field hours -g "<group>" --since 2025    # sum, avg, min or max of a field
+```
+
 ## Reading the output
 
 - The header states the scope and `shown N of M`. Zero means *none found*,

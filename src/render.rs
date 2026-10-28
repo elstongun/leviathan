@@ -7,7 +7,7 @@ use std::fmt::Write;
 use crate::card::Card;
 use crate::config::plural;
 use crate::index::IngestReport;
-use crate::query::{Description, GroupMatch, Scope, SearchOutcome, Sort, Status};
+use crate::query::{AggregateOutcome, Description, GroupMatch, Metric, Scope, SearchOutcome, Sort, Status};
 
 pub fn thousands(n: i64) -> String {
     let digits = n.unsigned_abs().to_string();
@@ -165,6 +165,75 @@ pub fn search(o: &SearchOutcome) -> String {
         let more = o.total_matches as usize > last;
         let page = if more { format!(" · --offset {last} for more") } else { String::new() };
         let _ = writeln!(out, "next: `leviathan get <id>` for a full {record}{page}");
+    }
+    out
+}
+
+fn number(v: f64) -> String {
+    if v.fract() == 0.0 && v.abs() < 1e15 {
+        thousands(v as i64)
+    } else {
+        format!("{v:.2}")
+    }
+}
+
+pub fn aggregate(o: &AggregateOutcome) -> String {
+    let record = &o.about.record;
+    let group_noun = &o.about.group;
+    let metric = match (o.metric, &o.field) {
+        (Metric::Count, _) => format!("count of {}", plural(record)),
+        (m, Some(f)) => format!("{} of {f}", format!("{m:?}").to_lowercase()),
+        (m, None) => format!("{m:?}").to_lowercase(),
+    };
+    let mut scope = Vec::new();
+    if let Some(g) = &o.group {
+        scope.push(format!("{group_noun} {}", group_label(&g.key, g.name.as_deref())));
+    }
+    if let Some(c) = &o.group_contains {
+        scope.push(format!("{} containing {c:?}", plural(group_noun)));
+    }
+    for f in &o.filters {
+        scope.push(format!("{}={}", f.field, f.value));
+    }
+    match (&o.since, &o.until) {
+        (Some(a), Some(b)) => scope.push(format!("{a}..{b}")),
+        (Some(a), None) => scope.push(format!("since {a}")),
+        (None, Some(b)) => scope.push(format!("until {b}")),
+        _ => {}
+    }
+    if !o.query.trim().is_empty() {
+        scope.push(format!("matching {:?}", o.query));
+    }
+    let by = match o.by.as_deref() {
+        Some("group") => format!(" · by {group_noun}"),
+        Some(b) => format!(" · by {b}"),
+        None => String::new(),
+    };
+    let mut out = format!("leviathan aggregate · {metric}{by}");
+    if !scope.is_empty() {
+        let _ = write!(out, " · {}", scope.join(" · "));
+    }
+    let _ = writeln!(out, " · {} matched", count(o.records, record));
+    if o.status != Status::Ok {
+        for c in &o.candidates {
+            let _ = writeln!(out, "  candidate {}", group_label(&c.key, c.name.as_deref()));
+        }
+    } else if o.by.is_none() {
+        let _ = writeln!(out, "  total: {}", number(o.value));
+    } else {
+        let width = o.rows.iter().map(|r| group_label(&r.key, r.name.as_deref()).chars().count()).max().unwrap_or(0);
+        for r in &o.rows {
+            let label = if r.key.is_empty() { "(none)".to_string() } else { group_label(&r.key, r.name.as_deref()) };
+            let records = if o.metric == Metric::Count { String::new() } else { format!("  ({})", count(r.records, record)) };
+            let _ = writeln!(out, "  {label:width$}  {}{records}", number(r.value));
+        }
+        if o.buckets > o.rows.len() as i64 {
+            let _ = writeln!(out, "  … {} more (raise limit to see them)", thousands(o.buckets - o.rows.len() as i64));
+        }
+        let _ = writeln!(out, "  {} distinct · total {}", thousands(o.buckets), number(o.value));
+    }
+    for note in &o.notes {
+        let _ = writeln!(out, "note: {note}");
     }
     out
 }
