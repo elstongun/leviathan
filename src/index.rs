@@ -143,6 +143,7 @@ pub fn build(
             index_bytes: fs::metadata(index_path)?.len(),
             record_count: count(&conn, "records")?,
             group_count: count(&conn, "groups")?,
+            kinds: kind_reports(index_path, config, sources, false)?,
             ..Default::default()
         });
     }
