@@ -879,6 +879,19 @@ impl Condition {
     }
 }
 
+/// Limits on one aggregate, so a caller of `serve` cannot hold a worker or
+/// memory without end: seconds (`LEVIATHAN_AGGREGATE_SECONDS`, default 60)
+/// and buckets or distinct values kept (`LEVIATHAN_AGGREGATE_BUCKETS`,
+/// default 1,000,000).
+fn aggregate_limits() -> (std::time::Duration, usize) {
+    let env =
+        |name: &str, default: u64| std::env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(default);
+    (
+        std::time::Duration::from_secs(env("LEVIATHAN_AGGREGATE_SECONDS", 60)),
+        env("LEVIATHAN_AGGREGATE_BUCKETS", 1_000_000) as usize,
+    )
+}
+
 /// One way of splitting records into buckets.
 enum Dim {
     Group,
@@ -1070,7 +1083,28 @@ impl Store {
         let mut buckets: BTreeMap<Vec<String>, Acc> = BTreeMap::new();
         let mut overall = Acc::default();
         let mut seen_field_values = vec![false; dims.len()];
+        let (max_time, max_buckets) = aggregate_limits();
+        let started = std::time::Instant::now();
+        let mut scanned = 0u64;
         while let Some(row) = rows.next()? {
+            scanned += 1;
+            if scanned.is_multiple_of(4096) && started.elapsed() > max_time {
+                return bad(
+                    out,
+                    format!(
+                        "stopped after {}s and {scanned} records; narrow it with a group, filters, words or dates",
+                        max_time.as_secs()
+                    ),
+                );
+            }
+            if buckets.len() > max_buckets || overall.distinct.len() > max_buckets {
+                return bad(
+                    out,
+                    format!(
+                        "more than {max_buckets} buckets or distinct values; split by a field with fewer values, or narrow it"
+                    ),
+                );
+            }
             let grp: Option<String> = row.get(0)?;
             let date: Option<String> = row.get(1)?;
             let facets: Option<String> = row.get(2)?;

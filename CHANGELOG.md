@@ -42,6 +42,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   values), drops an id that sits beside its name (`plan.id`, `parts[].sku`)
   and proposes up to 12 filters.
 - A group's name comes from its most recent record that has one.
+- `aggregate` stops with a note after 60 seconds or 1,000,000 buckets or
+  distinct values (`LEVIATHAN_AGGREGATE_SECONDS`, `LEVIATHAN_AGGREGATE_BUCKETS`),
+  so a caller of `serve` cannot hold a worker or memory without end.
+- Directory walks no longer follow symbolic links; name a linked file or
+  folder to index it.
 - Without `--strict`, a file that cannot be read is skipped and reported
   instead of failing the build; empty records (`{}`) are skipped.
 

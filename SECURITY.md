@@ -51,7 +51,10 @@ server you control.
   `--auth none` is refused on non-loopback addresses. Requests with a
   foreign `Origin` header are rejected (DNS rebinding), bodies are capped
   at 4 MB, and Leviathan does not terminate TLS: put it behind a TLS proxy
-  or tunnel to expose it ([docs/REMOTE.md](docs/REMOTE.md)).
+  or tunnel to expose it ([docs/REMOTE.md](docs/REMOTE.md)). `aggregate`
+  reads every matching record to stay exact, so one request stops after 60
+  seconds or 1,000,000 buckets or distinct values
+  (`LEVIATHAN_AGGREGATE_SECONDS`, `LEVIATHAN_AGGREGATE_BUCKETS`).
 - **Agent configs never hold tokens.** `wrap` writes environment variable
   references or a stdio bridge that reads the token when it runs, and backs
   up every file it changes. It refuses to write project files through

@@ -165,7 +165,12 @@ pub fn discover(paths: &[PathBuf], format: Format, sql: Option<&str>) -> Result<
 
 fn walk(dir: &Path, out: &mut BTreeSet<PathBuf>) -> Result<()> {
     for entry in fs::read_dir(dir).with_context(|| format!("read {}", dir.display()))? {
-        let path = entry?.path();
+        let entry = entry?;
+        // Name a linked file or folder explicitly to index it; a walk stays inside.
+        if entry.file_type().map_or(true, |t| t.is_symlink()) {
+            continue;
+        }
+        let path = entry.path();
         let hidden = path.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with('.'));
         if hidden {
             continue;
@@ -715,6 +720,19 @@ mod tests {
             json!({"id": "1", "Name": "Café Bleu", "column_3": "x", "name_2": "dup", "city": "Paris"})
         );
         assert_eq!(records[1], json!({"id": "2", "Name": "A;B", "city": "Lyon", "column_6": "spill"}));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn directory_walks_do_not_follow_symlinks() {
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("private.csv"), "a,b\n1,2\n").unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("mine.csv"), "id\n1\n").unwrap();
+        std::os::unix::fs::symlink(outside.path().join("private.csv"), dir.path().join("link.csv")).unwrap();
+        std::os::unix::fs::symlink(outside.path(), dir.path().join("linked_dir")).unwrap();
+        let found = discover(&[dir.path().to_path_buf()], Format::Auto, None).unwrap();
+        assert_eq!(found.iter().map(Source::label).collect::<Vec<_>>(), ["mine.csv"]);
     }
 
     #[test]

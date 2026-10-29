@@ -898,6 +898,13 @@ fn aggregate_cli_and_mcp_agree() {
     assert!(String::from_utf8_lossy(&unknown.stdout).contains("no values at `nonsense`"));
     let two = cli(&index, &["aggregate", "--by", "group,status", "--numeric", "id!=0"]);
     assert!(two.status.success(), "{}", String::from_utf8_lossy(&two.stderr));
+    let limited = Command::new(env!("CARGO_BIN_EXE_leviathan"))
+        .env("LEVIATHAN_AGGREGATE_BUCKETS", "2")
+        .args(["--index", index.to_str().unwrap(), "aggregate", "--by", "month"])
+        .output()
+        .unwrap();
+    assert_eq!(limited.status.code(), Some(2), "over the bucket limit is refused");
+    assert!(String::from_utf8_lossy(&limited.stdout).contains("more than 2 buckets"));
 
     let mut child = Command::new(env!("CARGO_BIN_EXE_leviathan"))
         .arg("--index")
