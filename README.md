@@ -80,6 +80,7 @@ Fields are paths (`a.b`, `items[].name`); only `id` is required.
 | `empty_values` / `rank.boost` | Placeholders treated as missing / favor complete records |
 
 ```bash
+leviathan index ./export                      # everything in a folder: files of every format, every SQLite table
 leviathan init ./export                       # infer a commented leviathan.toml
 leviathan index tickets.csv --id "Ticket ID" --group customer_id --date created_at   # or flags
 leviathan index -c tickets.toml               # or a config your agent wrote from the schema
@@ -93,6 +94,13 @@ psql "$DATABASE_URL" -At -c "SELECT row_to_json(t) FROM tickets t" | leviathan i
 leviathan index app.db --sql "SELECT * FROM tickets" -c tickets.toml
 duckdb -json -c "SELECT * FROM 'events/*.parquet'" | leviathan index - -c events.toml
 ```
+
+A folder of tickets, customers and orders becomes one index with a kind per
+dataset: `--where _kind=orders` keeps one, ids read `orders:1042`, and a
+customer's group holds their tickets and orders together
+([several kinds](docs/CONFIG.md#several-kinds-of-record)). Messy exports are
+fine: wrapped or pretty-printed JSON, `;` or `|` CSVs, byte-order marks,
+Latin-1, blank headers.
 
 Builds are atomic and skipped when nothing changed; `upsert` and `delete` keep an index fresh. Full reference: [docs/CONFIG.md](docs/CONFIG.md).
 

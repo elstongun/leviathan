@@ -118,11 +118,59 @@ What each field enables:
 | Input | How |
 |---|---|
 | JSONL / NDJSON | one object per line; `.gz` is read transparently |
-| JSON | a top-level array of objects |
-| CSV / TSV | header row required; cells are strings; `.gz` ok |
-| SQLite | `--sql` query, or the database's only table; JSON text cells are parsed |
+| JSON | an array of objects; an array whose first row is a header of strings; a document that wraps its records (`{"data": {"items": [...]}}`, the largest array of objects up to three levels down); a map of id to record (the key is kept as `_key`); or one object |
+| CSV / TSV | header row required; cells are strings; `.gz` ok. The delimiter (`,` `;` `\|` tab) is detected; a byte-order mark, blank or repeated headers (`column_3`, `name_2`), extra cells and non-UTF-8 (read as Latin-1) are handled |
+| SQLite | every table and view (not SQLite's own or full-text shadow tables), `file.db#table` for one, or `--sql`; JSON text cells are parsed. Leviathan's own index and memory files are skipped |
 | stdin | `-`; sniffed (`{` JSONL, `[` JSON, else CSV) or set with `--format` |
-| a directory | every `.jsonl .ndjson .json .csv .tsv` (and `.gz`) beneath it; hidden files skipped |
+| a directory | every `.jsonl .ndjson .json .csv .tsv` (and `.gz`) and SQLite file beneath it; hidden files skipped |
+
+Empty records (`{}`) are skipped. Without `--strict`, a file that cannot be
+read at all (truncated JSON) is skipped and listed in the build report.
+
+## Several kinds of record
+
+A folder rarely holds one kind of record: tickets, customers and orders sit
+side by side. Without a mapping, `leviathan index <dir>` sorts the sources
+into **kinds** by their fields (files whose top-level fields mostly overlap
+are one kind; each SQLite table is a source) and infers a mapping for each.
+One kind gives a plain index, as before. With several:
+
+- every record carries the filter `_kind` (`--where _kind=customers`,
+  `aggregate --by _kind`), next to each kind's own filters;
+- ids are `<kind>:<id>` (`tickets:T-17`); `get T-17` still works when only one
+  kind has that id;
+- a kind whose ids are the values another kind groups by (customers' `id`,
+  tickets' `customer_id`) is grouped by its id, so `-g acme` returns the
+  customer with their tickets and orders, and the group takes its name.
+
+`leviathan init <dir>` writes the same as `[[kinds]]`, one per kind, to review:
+
+```toml
+[[kinds]]
+name = "tickets"          # letters, digits, _ and -
+record = "ticket"
+group = "customer"
+paths = ["exports/tickets.csv"]   # files, directories, or app.db#table
+[kinds.fields]
+id = "id"
+title = "subject"
+group = "customer_id"
+date = "opened"
+filters = ["status"]
+
+[[kinds]]
+name = "customers"
+record = "customer"
+group = "customer"
+paths = ["exports/customers.json"]
+[kinds.fields]
+id = "id"
+group = "id"
+group_name = "name"
+```
+
+`[rank]` applies to every kind; `[source]` and `[fields]` are unused. `upsert`
+finds each file's kind from `paths`, or takes `--kind`.
 
 Dates are normalized to sortable `YYYY-MM-DDTHH:MM:SS` from ISO 8601 or RFC
 3339 (offsets dropped), `YYYY/MM/DD`, US `M/D/YYYY [h:mm AM/PM]`, and epoch

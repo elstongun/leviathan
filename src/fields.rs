@@ -72,6 +72,9 @@ fn push_text(value: &Value, out: &mut Vec<String>, top: bool) {
 #[derive(Debug, Clone)]
 pub struct Mapping {
     pub config: Config,
+    /// Set in an index with several kinds: records get the `_kind` filter and
+    /// ids `<kind>:<id>`.
+    pub kind: Option<String>,
     id: Option<FieldPath>,
     title: Vec<FieldPath>,
     text: Vec<FieldPath>,
@@ -138,6 +141,7 @@ impl Mapping {
         let paths = |v: &[String]| v.iter().map(|p| FieldPath::parse(p)).collect::<Vec<_>>();
         Ok(Self {
             config: config.clone(),
+            kind: None,
             id: f.id.as_deref().map(FieldPath::parse),
             title: paths(&f.title),
             text: paths(&f.text),
@@ -193,7 +197,16 @@ impl Mapping {
     }
 
     pub fn record_id(&self, record: &Value) -> Option<String> {
-        self.id.as_ref().and_then(|p| self.first(std::slice::from_ref(p), record))
+        let id = self.id.as_ref().and_then(|p| self.first(std::slice::from_ref(p), record))?;
+        Some(self.qualify(&id))
+    }
+
+    /// `<kind>:<id>` in an index with several kinds, else `id`.
+    pub fn qualify(&self, id: &str) -> String {
+        match &self.kind {
+            Some(k) => format!("{k}:{id}"),
+            None => id.to_string(),
+        }
     }
 
     /// The record's date, normalized when recognizable.
@@ -231,6 +244,10 @@ impl Mapping {
 
         let mut facets: Vec<(String, String)> = Vec::new();
         let mut seen = HashSet::new();
+        if let Some(kind) = &self.kind {
+            facets.push((KIND_FILTER.to_string(), kind.clone()));
+            seen.insert((KIND_FILTER.to_string(), kind.to_lowercase()));
+        }
         for p in &self.filters {
             for v in self.strings(p, record) {
                 let v: String = v.trim().chars().take(200).collect();
@@ -270,6 +287,109 @@ impl Mapping {
             facets,
             tags: tags.join(" "),
         }
+    }
+}
+
+/// The filter every record of a multi-kind index carries.
+pub const KIND_FILTER: &str = "_kind";
+
+/// The mappings of an index: one, or one per kind.
+#[derive(Debug, Clone)]
+pub struct Mappings {
+    pub config: Config,
+    single: Option<Mapping>,
+    kinds: Vec<Mapping>,
+}
+
+impl Mappings {
+    pub fn new(config: &Config) -> Result<Self> {
+        config.validate()?;
+        if config.kinds.is_empty() {
+            return Ok(Self {
+                config: config.clone(),
+                single: Some(Mapping::new(config)?),
+                kinds: Vec::new(),
+            });
+        }
+        let kinds = config
+            .kinds
+            .iter()
+            .map(|k| {
+                let mut m = Mapping::new(&config.for_kind(k))?;
+                m.kind = Some(k.name.clone());
+                Ok(m)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self { config: config.clone(), single: None, kinds })
+    }
+
+    pub fn is_multi(&self) -> bool {
+        self.single.is_none()
+    }
+
+    /// Every mapping: the one, or each kind's.
+    pub fn all(&self) -> &[Mapping] {
+        match &self.single {
+            Some(m) => std::slice::from_ref(m),
+            None => &self.kinds,
+        }
+    }
+
+    pub fn kind(&self, name: &str) -> Option<&Mapping> {
+        self.kinds.iter().find(|m| m.kind.as_deref() == Some(name))
+    }
+
+    /// The mapping for a source of the given kind.
+    pub fn for_source(&self, kind: Option<&str>) -> Result<&Mapping> {
+        match (&self.single, kind) {
+            (Some(m), _) => Ok(m),
+            (None, Some(k)) => {
+                self.kind(k).ok_or_else(|| anyhow::anyhow!("no kind named {k:?} in this index"))
+            }
+            (None, None) => anyhow::bail!(
+                "this index holds several kinds ({}); say which one each source is",
+                self.kind_names().join(", ")
+            ),
+        }
+    }
+
+    /// The mapping a stored record was built with, from its id.
+    pub fn for_id(&self, id: &str) -> &Mapping {
+        match &self.single {
+            Some(m) => m,
+            None => id.split_once(':').and_then(|(k, _)| self.kind(k)).unwrap_or_else(|| &self.kinds[0]),
+        }
+    }
+
+    pub fn kind_names(&self) -> Vec<String> {
+        self.kinds.iter().filter_map(|m| m.kind.clone()).collect()
+    }
+
+    /// Filter fields across every kind, `_kind` first in a multi-kind index.
+    pub fn filter_fields(&self) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        if self.is_multi() {
+            out.push(KIND_FILTER.into());
+        }
+        for m in self.all() {
+            for p in &m.filters {
+                if !out.contains(&p.raw) {
+                    out.push(p.raw.clone());
+                }
+            }
+        }
+        out
+    }
+
+    pub fn has_group(&self) -> bool {
+        self.all().iter().any(Mapping::has_group)
+    }
+    pub fn has_date(&self) -> bool {
+        self.all().iter().any(Mapping::has_date)
+    }
+    /// Every kind has an id field (needed to replace records on upsert).
+    pub fn has_id(&self) -> bool {
+        self.all().iter().all(Mapping::has_id)
     }
 }
 

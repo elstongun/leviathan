@@ -4,7 +4,7 @@ use std::process::ExitCode;
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use leviathan::card::CardOptions;
-use leviathan::config::{Config, FieldFlags};
+use leviathan::config::{self, Config, FieldFlags};
 use leviathan::index::{self, BuildOptions};
 use leviathan::mcp::{MemoryOptions, MemoryTools, ServerOptions};
 use leviathan::query::{AggregateRequest, Metric, Scope, SearchRequest, Sort, Status, Store};
@@ -112,6 +112,10 @@ enum Command {
     Upsert {
         #[arg(required = true)]
         paths: Vec<PathBuf>,
+        /// The kind these records are, in an index that holds several
+        /// [default: the kind whose paths name each source]
+        #[arg(long)]
+        kind: Option<String>,
         #[arg(long)]
         strict: bool,
         #[arg(short, long)]
@@ -309,6 +313,20 @@ fn load_config(flags: &FieldFlags) -> Result<(Config, bool)> {
 }
 
 fn sources_for(paths: &[PathBuf], cfg: &Config) -> Result<Vec<source::Source>> {
+    if paths.is_empty() && !cfg.kinds.is_empty() {
+        let mut out = Vec::new();
+        for kind in &cfg.kinds {
+            let kind_paths: Vec<PathBuf> = kind.paths.iter().map(PathBuf::from).collect();
+            if kind_paths.is_empty() {
+                bail!("kind {:?} has no paths", kind.name);
+            }
+            for mut s in source::discover(&kind_paths, kind.format, kind.sql.as_deref())? {
+                s.kind = Some(kind.name.clone());
+                out.push(s);
+            }
+        }
+        return Ok(out);
+    }
     let paths: Vec<PathBuf> =
         if paths.is_empty() { cfg.source.paths.iter().map(PathBuf::from).collect() } else { paths.to_vec() };
     if paths.is_empty() {
@@ -316,7 +334,43 @@ fn sources_for(paths: &[PathBuf], cfg: &Config) -> Result<Vec<source::Source>> {
             "no sources: pass files or directories (or `-` for stdin), or set source.paths in leviathan.toml"
         );
     }
-    source::discover(&paths, cfg.source.format)
+    let mut sources = source::discover(&paths, cfg.source.format, cfg.source.sql.as_deref())?;
+    index::assign_kinds(cfg, &mut sources, None)?;
+    Ok(sources)
+}
+
+/// Infer kinds and their mappings from the data: one kind keeps the plain
+/// single mapping; several become `[[kinds]]`.
+fn infer_mapping(
+    cfg: &mut Config,
+    sources: &mut [source::Source],
+    sample: usize,
+) -> Result<Vec<infer::KindProposal>> {
+    let mut kinds = infer::propose_kinds(sources, cfg.source.sql.as_deref(), sample)?;
+    if kinds.len() == 1 {
+        let only = kinds.remove(0);
+        cfg.fields = only.proposal.config.fields.clone();
+        cfg.about = only.proposal.config.about.clone();
+        return Ok(vec![only]);
+    }
+    cfg.kinds = kinds
+        .iter()
+        .map(|k| config::KindConfig {
+            name: k.name.clone(),
+            record: k.proposal.config.about.record.clone(),
+            group: k.proposal.config.about.group.clone(),
+            paths: k.sources.iter().map(source::Source::key).collect(),
+            format: Default::default(),
+            sql: None,
+            fields: k.proposal.config.fields.clone(),
+        })
+        .collect();
+    cfg.about.record = "record".into();
+    for s in sources.iter_mut() {
+        let key = s.key();
+        s.kind = kinds.iter().find(|k| k.sources.iter().any(|m| m.key() == key)).map(|k| k.name.clone());
+    }
+    Ok(kinds)
 }
 
 fn search(cli_json: bool, store: &Store, req: &SearchRequest) -> Result<u8> {
@@ -338,31 +392,43 @@ fn run(cli: Cli) -> Result<u8> {
             if !to_stdout && output.exists() && !force {
                 bail!("{} exists; pass --force to overwrite or -o - to print", output.display());
             }
-            let sources = source::discover(&paths, format.unwrap_or_default())?;
-            let profile = infer::profile(&sources, sql.as_deref(), sample.max(1))?;
-            let mut proposal = infer::propose(profile, &sources);
-            if let Some(f) = format {
-                proposal.config.source.format = f;
-            }
-            proposal.config.source.sql.clone_from(&sql);
-            let toml = infer::to_toml(&proposal);
-            if cli.json {
-                println!("{}", serde_json::to_string(&proposal)?);
-            } else if to_stdout {
+            let mut sources = source::discover(&paths, format.unwrap_or_default(), sql.as_deref())?;
+            let mut cfg = Config {
+                source: config::SourceConfig { sql: sql.clone(), ..Default::default() },
+                ..Default::default()
+            };
+            let mut kinds = infer_mapping(&mut cfg, &mut sources, sample.max(1))?;
+            let sampled: usize = kinds.iter().map(|k| k.proposal.profile.sampled).sum();
+            let toml = if kinds.len() == 1 {
+                let mut proposal = kinds.remove(0).proposal;
+                if let Some(f) = format {
+                    proposal.config.source.format = f;
+                }
+                proposal.config.source.sql.clone_from(&sql);
+                if cli.json {
+                    println!("{}", serde_json::to_string(&proposal)?);
+                }
+                infer::to_toml(&proposal)
+            } else {
+                if cli.json {
+                    println!("{}", serde_json::to_string(&kinds)?);
+                }
+                infer::kinds_to_toml(&cfg, &kinds)
+            };
+            if to_stdout && !cli.json {
                 print!("{toml}");
             }
             if !to_stdout {
                 std::fs::write(&output, &toml).with_context(|| format!("write {}", output.display()))?;
                 eprintln!(
-                    "wrote {} from {} sampled records; review it, then `leviathan index`",
-                    output.display(),
-                    proposal.profile.sampled
+                    "wrote {} from {sampled} sampled records; review it, then `leviathan index`",
+                    output.display()
                 );
             }
         }
         Command::Index { paths, fields, force, strict, quiet } => {
             let (mut cfg, mapped) = load_config(&fields)?;
-            let sources = sources_for(&paths, &cfg)?;
+            let mut sources = sources_for(&paths, &cfg)?;
             let inferred = !mapped;
             if inferred {
                 if sources.iter().any(source::Source::is_stdin) {
@@ -371,20 +437,23 @@ fn run(cli: Cli) -> Result<u8> {
                          or save to a file and run `leviathan init` on it"
                     );
                 }
-                let proposal = infer::propose(
-                    infer::profile(&sources, cfg.source.sql.as_deref(), INFER_SAMPLE)?,
-                    &sources,
-                );
-                cfg.fields = proposal.config.fields;
-                cfg.about = proposal.config.about;
+                let kinds = infer_mapping(&mut cfg, &mut sources, INFER_SAMPLE)?;
+                let readable: std::collections::HashSet<String> =
+                    kinds.iter().flat_map(|k| k.sources.iter().map(source::Source::key)).collect();
+                sources.retain(|s| readable.contains(&s.key()));
             }
             let report =
                 index::build(&cli.index, &sources, &cfg, inferred, BuildOptions { force, strict, quiet })?;
             emit(cli.json, &report, || render::ingest(&report))?;
         }
-        Command::Upsert { paths, strict, quiet } => {
-            let sources = source::discover(&paths, Default::default())?;
-            let report = index::upsert(&cli.index, &sources, BuildOptions { force: true, strict, quiet })?;
+        Command::Upsert { paths, kind, strict, quiet } => {
+            let sources = source::discover(&paths, Default::default(), None)?;
+            let report = index::upsert(
+                &cli.index,
+                &sources,
+                kind.as_deref(),
+                BuildOptions { force: true, strict, quiet },
+            )?;
             emit(cli.json, &report, || render::ingest(&report))?;
         }
         Command::Delete { ids } => {

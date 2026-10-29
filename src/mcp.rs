@@ -70,6 +70,21 @@ fn dataset_summary(store: &Store) -> Option<String> {
         render::thousands(d.record_count),
         plural(record)
     );
+    if !d.kinds.is_empty() {
+        let kinds: Vec<String> = d
+            .kinds
+            .iter()
+            .map(|k| {
+                let group = k.fields.group.as_deref().map(|g| format!(", group = {g}")).unwrap_or_default();
+                format!("{} ({} {}{group})", k.name, render::thousands(k.records), plural(&k.record))
+            })
+            .collect();
+        s.push_str(&format!(
+            " of {} kinds: {}. Ids are `<kind>:<id>`; `where _kind=<kind>` keeps one kind, `by: _kind` counts per kind",
+            d.kinds.len(),
+            kinds.join(", ")
+        ));
+    }
     if let Some(g) = &d.fields.group {
         s.push_str(&format!(" across {} {} (group = {g})", render::thousands(d.group_count), plural(group)));
     }

@@ -14,8 +14,8 @@ use anyhow::{Context, Result, bail};
 use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 use serde::Serialize;
 
-use crate::config::{Config, Fields};
-use crate::fields::Mapping;
+use crate::config::{Config, Fields, KindConfig};
+use crate::fields::{KIND_FILTER, Mappings};
 use crate::source::{self, Item, Source};
 use crate::text::normalize_name;
 
@@ -96,6 +96,20 @@ pub struct IngestReport {
     /// Set when no config or flags were given and the mapping was inferred.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inferred_mapping: Option<Fields>,
+    /// Each kind in an index that holds several.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub kinds: Vec<KindReport>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KindReport {
+    pub name: String,
+    pub record: String,
+    pub records: i64,
+    pub sources: usize,
+    /// The mapping, when it was inferred.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fields: Option<Fields>,
 }
 
 fn is_zero(n: &u64) -> bool {
@@ -118,7 +132,7 @@ pub fn build(
     inferred: bool,
     opts: BuildOptions,
 ) -> Result<IngestReport> {
-    let mapping = Mapping::new(config)?;
+    let mappings = Mappings::new(config)?;
     let config = &Config { memory: Default::default(), ..config.clone() };
     let config_json = serde_json::to_string(config)?;
     let manifest = source::manifest(sources, &config_json)?;
@@ -148,9 +162,9 @@ pub fn build(
         )?;
         conn.execute_batch(&schema_sql(config.rank.title_weight))?;
         let tx = conn.transaction()?;
-        let mut ingest = Ingest::new(&tx, &mapping, opts, false)?;
+        let mut ingest = Ingest::new(&tx, &mappings, opts, false)?;
         for s in sources {
-            ingest.source(s, config.source.sql.as_deref())?;
+            ingest.source(s, sql_for(config, s))?;
         }
         let mut report = ingest.finish()?;
         rebuild_groups(&tx, false)?;
@@ -190,35 +204,124 @@ pub fn build(
     report.index_path = index_path.to_path_buf();
     report.index_bytes = fs::metadata(index_path)?.len();
     report.elapsed_seconds = round1(started.elapsed().as_secs_f64());
-    if inferred {
+    if inferred && config.kinds.is_empty() {
         report.inferred_mapping = Some(config.fields.clone());
     }
+    report.kinds = kind_reports(index_path, config, sources, inferred)?;
     Ok(report)
+}
+
+/// The SQL for a source: its kind's, else the index-wide one.
+fn sql_for<'a>(config: &'a Config, source: &crate::source::Source) -> Option<&'a str> {
+    match source.kind.as_deref().and_then(|k| config.kinds.iter().find(|c| c.name == k)) {
+        Some(kind) => kind.sql.as_deref(),
+        None => config.source.sql.as_deref(),
+    }
+}
+
+fn kind_reports(
+    index_path: &Path,
+    config: &Config,
+    sources: &[Source],
+    inferred: bool,
+) -> Result<Vec<KindReport>> {
+    if config.kinds.is_empty() {
+        return Ok(Vec::new());
+    }
+    let conn = open_ro(index_path)?;
+    let counts: HashMap<String, i64> = conn
+        .prepare("SELECT key, count FROM facets WHERE field = ?1")?
+        .query_map([KIND_FILTER], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(config
+        .kinds
+        .iter()
+        .map(|k| KindReport {
+            name: k.name.clone(),
+            record: k.record.clone(),
+            records: counts.get(&k.name.to_lowercase()).copied().unwrap_or(0),
+            sources: sources.iter().filter(|s| s.kind.as_deref() == Some(k.name.as_str())).count(),
+            fields: inferred.then(|| k.fields.clone()),
+        })
+        .collect())
+}
+
+/// Give each source the kind whose `paths` name it (a file, a directory
+/// above it, or `file#table`), or `kind` for all when given.
+pub fn assign_kinds(config: &Config, sources: &mut [Source], kind: Option<&str>) -> Result<()> {
+    if config.kinds.is_empty() {
+        return Ok(());
+    }
+    if let Some(k) = kind {
+        if !config.kinds.iter().any(|c| c.name == k) {
+            bail!("no kind named {k:?}; this index has {}", kind_list(&config.kinds));
+        }
+        sources.iter_mut().for_each(|s| s.kind = Some(k.to_string()));
+        return Ok(());
+    }
+    for s in sources.iter_mut() {
+        let key = s.key();
+        let file = s.path.canonicalize().unwrap_or_else(|_| s.path.clone());
+        let owner = config.kinds.iter().find(|k| {
+            k.paths.iter().any(|p| {
+                let (path, table) = match p.rsplit_once('#') {
+                    Some((path, table)) if Path::new(path).is_file() => (path, Some(table)),
+                    _ => (p.as_str(), None),
+                };
+                let canon = Path::new(path).canonicalize().unwrap_or_else(|_| PathBuf::from(path));
+                match table {
+                    Some(t) => key == format!("{}#{t}", canon.display()),
+                    None if canon.is_dir() => file.starts_with(&canon),
+                    None => file == canon,
+                }
+            })
+        });
+        match owner {
+            Some(k) => s.kind = Some(k.name.clone()),
+            None => bail!(
+                "{} is not one of this index's sources; pass --kind (one of {})",
+                s.label(),
+                kind_list(&config.kinds)
+            ),
+        }
+    }
+    Ok(())
+}
+
+fn kind_list(kinds: &[KindConfig]) -> String {
+    kinds.iter().map(|k| k.name.as_str()).collect::<Vec<_>>().join(", ")
 }
 
 /// Insert or replace records (by id) in an existing index, using the mapping
 /// it was built with.
-pub fn upsert(index_path: &Path, sources: &[Source], opts: BuildOptions) -> Result<IngestReport> {
+pub fn upsert(
+    index_path: &Path,
+    sources: &[Source],
+    kind: Option<&str>,
+    opts: BuildOptions,
+) -> Result<IngestReport> {
     let started = Instant::now();
     let mut conn = open_rw(index_path)?;
     let config = stored_config(&conn)?;
-    let mapping = Mapping::new(&config)?;
-    if !mapping.has_id() {
+    let mappings = Mappings::new(&config)?;
+    let mut sources = sources.to_vec();
+    assign_kinds(&config, &mut sources, kind)?;
+    if !mappings.has_id() {
         bail!(
             "this index has no `id` field in its mapping, so records cannot be matched for replacement; rebuild instead"
         );
     }
     let tx = conn.transaction()?;
-    let mut ingest = Ingest::new(&tx, &mapping, opts, true)?;
-    for s in sources {
-        ingest.source(s, config.source.sql.as_deref())?;
+    let mut ingest = Ingest::new(&tx, &mappings, opts, true)?;
+    for s in &sources {
+        ingest.source(s, sql_for(&config, s))?;
     }
     let mut report = ingest.finish()?;
     finish_incremental(&tx, &mut report)?;
     tx.commit()?;
     report.built = true;
     report.index_path = index_path.to_path_buf();
-    report.source_bytes = source::byte_size(sources);
+    report.source_bytes = source::byte_size(&sources);
     report.index_bytes = fs::metadata(index_path)?.len();
     report.elapsed_seconds = round1(started.elapsed().as_secs_f64());
     Ok(report)
@@ -232,8 +335,10 @@ pub fn delete(index_path: &Path, ids: &[String]) -> Result<IngestReport> {
     tx.execute_batch("CREATE TEMP TABLE touched_groups (key TEXT PRIMARY KEY)")?;
     let mut deltas = FacetDeltas::default();
     let mut report = IngestReport::default();
+    let kinds: Vec<String> = stored_config(&tx)?.kinds.into_iter().map(|k| k.name).collect();
     for id in ids.iter().map(|s| s.trim()).filter(|s| !s.is_empty()) {
-        if let Some((rowid, grp, facets)) = existing(&tx, id)? {
+        let Some(id) = resolve_id(&tx, &kinds, id)? else { continue };
+        if let Some((rowid, grp, facets)) = existing(&tx, &id)? {
             tx.prepare_cached("DELETE FROM records WHERE rowid = ?1")?.execute([rowid])?;
             tx.prepare_cached("DELETE FROM record_fts WHERE rowid = ?1")?.execute([rowid])?;
             deltas.remove_json(facets.as_deref());
@@ -305,7 +410,7 @@ impl FacetDeltas {
 
 struct Ingest<'a> {
     conn: &'a Connection,
-    mapping: &'a Mapping,
+    mappings: &'a Mappings,
     opts: BuildOptions,
     report: IngestReport,
     deltas: FacetDeltas,
@@ -315,14 +420,14 @@ struct Ingest<'a> {
 impl<'a> Ingest<'a> {
     fn new(
         conn: &'a Connection,
-        mapping: &'a Mapping,
+        mappings: &'a Mappings,
         opts: BuildOptions,
         incremental: bool,
     ) -> Result<Self> {
         conn.execute_batch("CREATE TEMP TABLE IF NOT EXISTS touched_groups (key TEXT PRIMARY KEY)")?;
         Ok(Self {
             conn,
-            mapping,
+            mappings,
             opts,
             report: IngestReport::default(),
             deltas: FacetDeltas::default(),
@@ -331,15 +436,36 @@ impl<'a> Ingest<'a> {
     }
 
     fn source(&mut self, source: &Source, sql: Option<&str>) -> Result<()> {
-        log(self.opts, &format!("reading {}", source.path.display()));
+        let mappings = self.mappings;
+        let mapping = mappings.for_source(source.kind.as_deref())?;
         let label = source.label();
-        source::read(source, sql, &mut |item| {
-            match item {
-                Item::Bad { line, error } => self.skip(&label, line, &error)?,
-                Item::Record { line, value, raw } => self.record(&label, line, &value, raw)?,
+        match &source.kind {
+            Some(k) => log(self.opts, &format!("reading {label} ({k})")),
+            None => log(self.opts, &format!("reading {}", source.path.display())),
+        }
+        // A file that cannot be read is skipped like a bad record (unless
+        // strict); a failure writing the index is not.
+        let mut write_error = None;
+        let read = source::read(source, sql, &mut |item| {
+            let done = match item {
+                Item::Bad { line, error } => self.skip(&label, line, &error),
+                Item::Record { line, value, raw } => self.record(mapping, &label, line, &value, raw),
+            };
+            match done {
+                Ok(()) => Ok(true),
+                Err(e) => {
+                    write_error = Some(e);
+                    Ok(false)
+                }
             }
-            Ok(true)
-        })
+        });
+        if let Some(e) = write_error {
+            return Err(e);
+        }
+        match read {
+            Err(e) if !self.opts.strict => self.skip(&label, 0, &format!("unreadable: {e:#}")),
+            other => other,
+        }
     }
 
     fn skip(&mut self, label: &str, line: u64, why: &str) -> Result<()> {
@@ -356,17 +482,18 @@ impl<'a> Ingest<'a> {
 
     fn record(
         &mut self,
+        mapping: &crate::fields::Mapping,
         label: &str,
         line: u64,
         value: &serde_json::Value,
         raw: Option<String>,
     ) -> Result<()> {
-        let p = self.mapping.prepare(value);
-        let id = match (&p.id, self.mapping.has_id()) {
+        let p = mapping.prepare(value);
+        let id = match (&p.id, mapping.has_id()) {
             (Some(id), _) => id.clone(),
-            (None, false) => format!("{label}:{line}"),
+            (None, false) => mapping.qualify(&format!("{label}:{line}")),
             (None, true) => {
-                let field = self.mapping.config.fields.id.as_deref().unwrap_or_default();
+                let field = mapping.config.fields.id.as_deref().unwrap_or_default();
                 return self.skip(label, line, &format!("missing id field `{field}`"));
             }
         };
@@ -430,6 +557,32 @@ impl<'a> Ingest<'a> {
     }
 }
 
+/// The stored id for `id`: itself, or in an index with several kinds the one
+/// `<kind>:<id>` that exists. None when absent or ambiguous across kinds.
+pub fn resolve_id(conn: &Connection, kinds: &[String], id: &str) -> Result<Option<String>> {
+    let exists = |candidate: &str| -> Result<bool> {
+        Ok(conn
+            .prepare_cached("SELECT 1 FROM records WHERE id = ?1")?
+            .query_row([candidate], |_| Ok(()))
+            .optional()?
+            .is_some())
+    };
+    if exists(id)? {
+        return Ok(Some(id.to_string()));
+    }
+    let mut found = None;
+    for kind in kinds {
+        let candidate = format!("{kind}:{id}");
+        if exists(&candidate)? {
+            if found.is_some() {
+                return Ok(None);
+            }
+            found = Some(candidate);
+        }
+    }
+    Ok(found)
+}
+
 type Existing = (i64, Option<String>, Option<String>);
 
 fn existing(conn: &Connection, id: &str) -> Result<Option<Existing>> {
@@ -458,12 +611,18 @@ fn rebuild_groups(conn: &Connection, only_touched: bool) -> Result<()> {
     if only_touched {
         conn.execute(&format!("UPDATE groups SET record_count = 0 {scope}"), [])?;
     }
+    // The name comes from the group's most recent record that has one, so a
+    // newer record without a name (a ticket) does not hide its customer's.
     conn.execute(
         &format!(
             "INSERT INTO groups (key, name, record_count) \
-             SELECT grp, grp_name, n FROM ( \
-                 SELECT grp, grp_name, MAX(COALESCE(date, '')), COUNT(*) AS n \
-                 FROM records WHERE grp IS NOT NULL {filter} GROUP BY grp) WHERE true \
+             SELECT c.grp, nm.grp_name, c.n FROM ( \
+                 SELECT grp, COUNT(*) AS n FROM records WHERE grp IS NOT NULL {filter} GROUP BY grp) AS c \
+             LEFT JOIN ( \
+                 SELECT grp, grp_name, MAX(COALESCE(date, '')) \
+                 FROM records WHERE grp IS NOT NULL AND grp_name IS NOT NULL {filter} GROUP BY grp) AS nm \
+               ON nm.grp = c.grp \
+             WHERE true \
              ON CONFLICT (key) DO UPDATE SET \
                name = COALESCE(excluded.name, groups.name), \
                record_count = excluded.record_count"

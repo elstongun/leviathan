@@ -6,7 +6,6 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
-use std::path::Path;
 
 use anyhow::{Result, bail};
 use serde::Serialize;
@@ -316,6 +315,8 @@ pub fn propose(profile: Profile, sources: &[Source]) -> Proposal {
             !f.in_array && f.bools == 0 && share(f) >= 0.99 && f.distinct == f.values && !f.distinct_capped
         })
         .filter(|f| f.avg_chars <= 64.0 && f.date_share < 0.5)
+        // Unique free text (a description) is content, not an id.
+        .filter(|f| name_score(&f.path, ID_HINTS) > 0 || f.avg_words < 2.5)
         .max_by_key(|f| (name_score(&f.path, ID_HINTS), usize::MAX - f.path.len()))
         .filter(|f| name_score(&f.path, ID_HINTS) > 0 || f.path.split('.').count() == 1)
         .map(|f| {
@@ -403,11 +404,7 @@ pub fn propose(profile: Profile, sources: &[Source]) -> Proposal {
         reasons.push(("text".into(), "free text: avg 20+ chars or 3+ words".into()));
     }
 
-    let record = sources
-        .first()
-        .and_then(|s| Path::new(&s.label()).file_stem().map(|n| n.to_string_lossy().into_owned()))
-        .map(|stem| noun_from_stem(&stem))
-        .unwrap_or_else(|| "record".into());
+    let record = sources.first().map(|s| noun_from_stem(&s.stem())).unwrap_or_else(|| "record".into());
     let group_noun = group.as_deref().map(noun_from_path).unwrap_or_else(|| "group".into());
 
     let config = Config {
@@ -429,8 +426,139 @@ pub fn propose(profile: Profile, sources: &[Source]) -> Proposal {
         },
         rank: Default::default(),
         memory: Default::default(),
+        kinds: Vec::new(),
     };
     Proposal { config, reasons, profile }
+}
+
+/// One kind of record found among the sources, with its proposed mapping.
+#[derive(Debug, Serialize)]
+pub struct KindProposal {
+    pub name: String,
+    #[serde(skip)]
+    pub sources: Vec<Source>,
+    pub proposal: Proposal,
+}
+
+/// Records sampled per source to tell its shape.
+const SHAPE_SAMPLE: usize = 50;
+/// Sources whose top-level fields overlap this much hold the same kind.
+const SAME_KIND: f64 = 0.6;
+
+/// Split the sources into kinds of record by their top-level fields (files
+/// of one export, one table, one log, ...) and propose a mapping for each.
+/// Sources with no readable records are left out; one kind means a plain
+/// index.
+pub fn propose_kinds(sources: &[Source], sql: Option<&str>, limit: usize) -> Result<Vec<KindProposal>> {
+    let mut clusters: Vec<(HashSet<String>, Vec<Source>)> = Vec::new();
+    let mut unreadable = 0;
+    for s in sources {
+        let mut shape = HashSet::new();
+        let mut seen = 0;
+        let read = source::read(s, sql, &mut |item| {
+            if let Item::Record { value: Value::Object(map), .. } = item {
+                shape.extend(map.keys().cloned());
+                seen += 1;
+            }
+            Ok(seen < SHAPE_SAMPLE)
+        });
+        if read.is_err() || seen == 0 {
+            unreadable += 1;
+            continue;
+        }
+        let jaccard = |a: &HashSet<String>| {
+            a.intersection(&shape).count() as f64 / a.union(&shape).count().max(1) as f64
+        };
+        match clusters.iter_mut().find(|(rep, _)| jaccard(rep) >= SAME_KIND) {
+            Some((_, members)) => members.push(s.clone()),
+            None => clusters.push((shape, vec![s.clone()])),
+        }
+    }
+    if clusters.is_empty() {
+        bail!("no readable records in the sources ({unreadable} unreadable or empty)");
+    }
+    let mut taken = HashSet::new();
+    let mut out = Vec::new();
+    for (_, members) in clusters {
+        let mut proposal = propose(profile(&members, sql, limit)?, &members);
+        let stem = common_stem(&members);
+        proposal.config.about.record = noun_from_stem(&stem);
+        let mut name = crate::config::kind_name(&stem);
+        if !taken.insert(name.clone()) {
+            let base = name.clone();
+            let mut n = 2;
+            while !taken.insert(format!("{base}_{n}")) {
+                n += 1;
+            }
+            name = format!("{base}_{n}");
+        }
+        out.push(KindProposal { name, sources: members, proposal });
+    }
+    if out.len() > 1 {
+        link_groups(&mut out);
+    }
+    Ok(out)
+}
+
+/// A kind whose ids are another kind's group values (customers whose `id`s
+/// tickets reference as `customer_id`) joins those groups: its id becomes its
+/// group, so `group = C-1` finds the customer with their tickets, and its name
+/// field names the group.
+fn link_groups(kinds: &mut [KindProposal]) {
+    const NAME_HINTS: &[&str] = &["name", "title", "label", "display"];
+    let groups: Vec<(String, HashSet<String>)> = kinds
+        .iter()
+        .filter_map(|k| {
+            let g = k.proposal.config.fields.group.as_deref()?;
+            let stats = k.proposal.profile.get(g)?;
+            Some((k.proposal.config.about.group.clone(), stats.seen.clone()))
+        })
+        .collect();
+    for k in kinds.iter_mut() {
+        let fields = &k.proposal.config.fields;
+        let (None, Some(id)) = (&fields.group, &fields.id) else { continue };
+        let Some(ids) = k.proposal.profile.get(id).map(|s| &s.seen) else { continue };
+        let linked = groups.iter().find(|(_, values)| {
+            let shared = ids.intersection(values).count();
+            shared > 0 && shared * 2 >= ids.len().min(values.len())
+        });
+        let Some((noun, _)) = linked else { continue };
+        let n = k.proposal.profile.sampled.max(1);
+        let name = k
+            .proposal
+            .profile
+            .fields
+            .iter()
+            .filter(|f| {
+                f.path != *id && !f.in_array && f.strings > 0 && f.present * 2 >= n && !f.path.contains('.')
+            })
+            .filter(|f| name_score(&f.path, NAME_HINTS) > 0)
+            .max_by_key(|f| (name_score(&f.path, NAME_HINTS), f.present))
+            .map(|f| f.path.clone());
+        let id = id.clone();
+        k.proposal.reasons.push(("group".into(), format!("its ids are {noun} values other kinds group by")));
+        k.proposal.config.fields.group = Some(id);
+        k.proposal.config.fields.group_name = name;
+        k.proposal.config.about.group = noun.clone();
+    }
+}
+
+/// What a set of sources shares in its names: `logs-2024-01`, `logs-2024-02`
+/// give `logs`; one source gives its own stem.
+fn common_stem(sources: &[Source]) -> String {
+    let stems: Vec<String> = sources.iter().map(Source::stem).collect();
+    let trim = |s: &str| s.trim_end_matches(|c: char| !c.is_alphabetic()).to_string();
+    let first = stems.first().cloned().unwrap_or_default();
+    if stems.len() == 1 {
+        return first;
+    }
+    let mut prefix: Vec<char> = first.chars().collect();
+    for s in &stems[1..] {
+        let n = prefix.iter().zip(s.chars()).take_while(|(a, b)| **a == *b).count();
+        prefix.truncate(n);
+    }
+    let prefix = trim(&prefix.into_iter().collect::<String>());
+    if prefix.chars().count() >= 3 { prefix } else { trim(&first) }
 }
 
 /// A sibling that names the group: `customer.id` -> `customer.name`,
@@ -489,6 +617,32 @@ fn q(s: &str) -> String {
 
 fn list(v: &[String]) -> String {
     format!("[{}]", v.iter().map(|s| q(s)).collect::<Vec<_>>().join(", "))
+}
+
+/// Several kinds as a `leviathan.toml` of `[[kinds]]`.
+pub fn kinds_to_toml(cfg: &Config, kinds: &[KindProposal]) -> String {
+    #[derive(Serialize)]
+    struct Kinds<'a> {
+        kinds: &'a [crate::config::KindConfig],
+    }
+    let mut out = format!(
+        "# leviathan.toml, proposed by `leviathan init`: {} kinds of record.\n\
+         # Each [[kinds]] has its own sources and field mapping. Its records carry the\n\
+         # filter `_kind = <name>` and ids `<name>:<id>`. Review it, then run `leviathan index`.\n#\n",
+        kinds.len()
+    );
+    for k in kinds {
+        let _ = writeln!(
+            out,
+            "# {}: {} records sampled from {} source(s)",
+            k.name,
+            k.proposal.profile.sampled,
+            k.sources.len()
+        );
+    }
+    out.push('\n');
+    out.push_str(&toml::to_string(&Kinds { kinds: &cfg.kinds }).unwrap_or_default());
+    out
 }
 
 /// The proposal as a commented `leviathan.toml`.
@@ -599,7 +753,7 @@ mod tests {
             .unwrap();
         }
         drop(f);
-        let sources = source::discover(&[path], crate::config::Format::Auto).unwrap();
+        let sources = source::discover(&[path], crate::config::Format::Auto, None).unwrap();
         let p = propose(profile(&sources, None, 1000).unwrap(), &sources);
         let fields = &p.config.fields;
         assert_eq!(fields.id.as_deref(), Some("ticket_id"));
@@ -639,7 +793,7 @@ mod tests {
             .unwrap();
         }
         drop(f);
-        let sources = source::discover(&[path], crate::config::Format::Auto).unwrap();
+        let sources = source::discover(&[path], crate::config::Format::Auto, None).unwrap();
         let p = propose(profile(&sources, None, 1000).unwrap(), &sources);
         let fields = &p.config.fields;
         assert_eq!(fields.id.as_deref(), Some("Order ID"));

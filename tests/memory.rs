@@ -295,7 +295,7 @@ fn recall_follows_refs_into_the_data_index() {
     let example = |f: &str| Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/tickets").join(f);
     let cfg = Config::load(&example("leviathan.toml")).unwrap();
     let paths: Vec<PathBuf> = cfg.source.paths.iter().map(PathBuf::from).collect();
-    let sources = source::discover(&paths, cfg.source.format).unwrap();
+    let sources = source::discover(&paths, cfg.source.format, None).unwrap();
     let index = tmp.path().join("tickets.db");
     index::build(&index, &sources, &cfg, false, BuildOptions { quiet: true, ..Default::default() }).unwrap();
     let store = Store::open(&index, CardOptions::default()).unwrap();

@@ -13,6 +13,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   filters, dates), optionally per group, year, month, day or filter field.
   Records without the field they are split by land in a `(none)` bucket.
   MCP tool `aggregate`, CLI `leviathan aggregate`, REST `/v1/aggregate`.
+- **Several kinds of record in one index.** `leviathan index <dir>` sorts
+  its sources into kinds by their fields and infers a mapping for each;
+  `[[kinds]]` in `leviathan.toml` configures them. Records carry the filter
+  `_kind`, ids read `<kind>:<id>` (bare ids still resolve), and a kind whose
+  ids are another kind's group values joins those groups, named by it.
+  `describe`, the MCP instructions and the build report list the kinds;
+  `upsert --kind` picks one. See docs/CONFIG.md.
+- **Every table of a SQLite file**, and SQLite files in directories;
+  `file.db#table` names one. Leviathan's own index and memory files are
+  skipped.
+- **Messier exports read as they are:** JSON documents that wrap their
+  records, pretty-printed single documents, maps of id to record and
+  header-row arrays; CSV with a byte-order mark, `;` or `|` delimiters,
+  blank or repeated headers, extra cells or Latin-1 bytes.
+
+### Changed
+
+- Inference no longer makes unique free text (a description) the id.
+- A group's name comes from its most recent record that has one.
+- Without `--strict`, a file that cannot be read is skipped and reported
+  instead of failing the build; empty records (`{}`) are skipped.
 
 ### Fixed
 

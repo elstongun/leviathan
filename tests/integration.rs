@@ -20,7 +20,7 @@ fn quiet() -> BuildOptions {
 fn build_tickets(dir: &Path) -> PathBuf {
     let cfg = Config::load(&example("leviathan.toml")).unwrap();
     let paths: Vec<PathBuf> = cfg.source.paths.iter().map(PathBuf::from).collect();
-    let sources = source::discover(&paths, cfg.source.format).unwrap();
+    let sources = source::discover(&paths, cfg.source.format, None).unwrap();
     let index = dir.join("tickets.db");
     let report = index::build(&index, &sources, &cfg, false, quiet()).unwrap();
     assert!(report.built);
@@ -184,8 +184,8 @@ fn upsert_and_delete_keep_counts_and_facets_exact() {
     let added = json!({"ticket_id": "T-2000", "subject": "Data residency question", "customer": {"id": "C-WAYNE", "name": "Wayne Enterprises"},
         "status": "open", "priority": "low", "created_at": "2025-01-02T10:00:00Z", "body": "Where is our data stored?"});
     std::fs::write(&delta, format!("{changed}\n{added}\n")).unwrap();
-    let sources = source::discover(&[delta], Format::Auto).unwrap();
-    let report = index::upsert(&index, &sources, quiet()).unwrap();
+    let sources = source::discover(&[delta], Format::Auto, None).unwrap();
+    let report = index::upsert(&index, &sources, None, quiet()).unwrap();
     assert_eq!((report.inserted, report.updated, report.record_count, report.group_count), (1, 1, 25, 5));
 
     let store = open(&index);
@@ -224,7 +224,7 @@ fn unchanged_sources_skip_and_a_mapping_change_rebuilds() {
     let tmp = tempfile::tempdir().unwrap();
     let index = build_tickets(tmp.path());
     let mut cfg = Config::load(&example("leviathan.toml")).unwrap();
-    let sources = source::discover(&[example("tickets.jsonl")], Format::Auto).unwrap();
+    let sources = source::discover(&[example("tickets.jsonl")], Format::Auto, None).unwrap();
     assert!(!index::build(&index, &sources, &cfg, false, quiet()).unwrap().built);
     cfg.fields.filters.push("comments[].author".into());
     assert!(index::build(&index, &sources, &cfg, false, quiet()).unwrap().built);
@@ -248,7 +248,7 @@ fn csv_sqlite_and_gzip_sources_index_the_same_way() {
     )
     .unwrap();
     let build = |path: &Path, cfg: &Config| {
-        let sources = source::discover(&[path.to_path_buf()], cfg.source.format).unwrap();
+        let sources = source::discover(&[path.to_path_buf()], cfg.source.format, None).unwrap();
         let index = path.with_extension("db");
         index::build(&index, &sources, cfg, false, quiet()).unwrap();
         open(&index)
@@ -300,7 +300,7 @@ fn bad_records_are_counted_or_fatal_in_strict_mode() {
     let src = tmp.path().join("mixed.jsonl");
     std::fs::write(&src, "{\"id\":\"1\",\"t\":\"ok\"}\nnot json\n{\"t\":\"no id\"}\n").unwrap();
     let cfg: Config = toml::from_str("[fields]\nid = \"id\"\n").unwrap();
-    let sources = source::discover(&[src], Format::Auto).unwrap();
+    let sources = source::discover(&[src], Format::Auto, None).unwrap();
     let report = index::build(&tmp.path().join("a.db"), &sources, &cfg, false, quiet()).unwrap();
     assert_eq!((report.record_count, report.skipped_lines), (1, 2));
     let strict = index::build(
@@ -495,7 +495,7 @@ fn aggregate_sums_averages_and_ranges_a_numeric_field() {
     )
     .unwrap();
     let cfg = Config::load(&toml).unwrap();
-    let sources = source::discover(&[data], Format::Auto).unwrap();
+    let sources = source::discover(&[data], Format::Auto, None).unwrap();
     let index = tmp.path().join("jobs.db");
     index::build(&index, &sources, &cfg, false, quiet()).unwrap();
     let store = open(&index);
@@ -670,7 +670,7 @@ fn aggregate_agrees_with_a_brute_force_count_over_random_data() {
     let cfg = Config::load(&toml).unwrap();
     let index = tmp.path().join("jobs.db");
     let report =
-        index::build(&index, &source::discover(&[data], Format::Auto).unwrap(), &cfg, false, quiet())
+        index::build(&index, &source::discover(&[data], Format::Auto, None).unwrap(), &cfg, false, quiet())
             .unwrap();
     assert_eq!(report.record_count, 2500);
     let store = open(&index);
@@ -842,6 +842,181 @@ fn aggregate_cli_and_mcp_agree() {
     assert_eq!(mcp_json["rows"], cli_json["rows"], "CLI and MCP compute the same buckets");
     let res = call(json!({"metric": "median"}));
     assert_eq!(res["result"]["isError"], true, "{res}");
+    drop(stdin);
+    assert!(child.wait().unwrap().success());
+}
+
+// ---- several kinds of record in one index -----------------------------------
+
+fn write_shop(dir: &Path) {
+    std::fs::write(
+        dir.join("tickets.csv"),
+        "id,customer_id,subject,status,opened\nT-1,C-1,Login loop after reset,open,2024-03-01\n\
+         T-2,C-2,Invoice totals wrong,closed,2024-03-02\nT-3,C-1,Export times out,open,2024-03-05\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("customers.json"),
+        r#"{"data": {"customers": [{"id": "C-1", "name": "Acme Corp", "plan": "enterprise"},
+                                   {"id": "C-2", "name": "Globex", "plan": "starter"}]}}"#,
+    )
+    .unwrap();
+}
+
+#[test]
+fn a_configured_index_holds_several_kinds_with_their_own_mappings() {
+    let tmp = tempfile::tempdir().unwrap();
+    write_shop(tmp.path());
+    let toml = tmp.path().join("leviathan.toml");
+    std::fs::write(
+        &toml,
+        r#"
+        [[kinds]]
+        name = "tickets"
+        record = "ticket"
+        group = "customer"
+        paths = ["tickets.csv"]
+        [kinds.fields]
+        id = "id"
+        title = "subject"
+        group = "customer_id"
+        date = "opened"
+        filters = ["status"]
+
+        [[kinds]]
+        name = "customers"
+        record = "customer"
+        group = "customer"
+        paths = ["customers.json"]
+        [kinds.fields]
+        id = "id"
+        title = "name"
+        group = "id"
+        group_name = "name"
+        filters = ["plan"]
+        "#,
+    )
+    .unwrap();
+    let index = tmp.path().join("shop.db");
+    let built = cli(&index, &["--json", "index", "-q", "--config", toml.to_str().unwrap()]);
+    assert!(built.status.success(), "{}", String::from_utf8_lossy(&built.stderr));
+    let report: Value = serde_json::from_slice(&built.stdout).unwrap();
+    assert_eq!(report["record_count"], 5);
+    assert_eq!(report["kinds"].as_array().unwrap().len(), 2);
+
+    let store = open(&index);
+    let d = store.describe(5).unwrap();
+    assert_eq!(
+        d.kinds.iter().map(|k| (k.name.as_str(), k.records)).collect::<Vec<_>>(),
+        [("tickets", 3), ("customers", 2)]
+    );
+    assert_eq!(d.filters.iter().map(|f| f.field.as_str()).collect::<Vec<_>>(), ["_kind", "status", "plan"]);
+
+    // One group spans kinds, named by the kind that has names.
+    let acme = store.search(&req(Some("acme"), "")).unwrap();
+    assert_eq!(ids(&acme), ["tickets:T-3", "tickets:T-1", "customers:C-1"]);
+    let card = &acme.results[0];
+    assert_eq!(
+        card.title.as_deref(),
+        Some("Export times out"),
+        "each record is shown with its own kind's mapping"
+    );
+    assert_eq!(store.card_by_id("C-1").unwrap().unwrap().title.as_deref(), Some("Acme Corp"));
+    assert!(store.get("T-2").unwrap().is_some(), "bare ids resolve");
+    assert!(store.get("tickets:T-2").unwrap().is_some());
+
+    // Filters from one kind narrow within it; `_kind` selects kinds.
+    let mut open_tickets = req(None, "");
+    open_tickets.filters = vec![("status".into(), "open".into())];
+    assert_eq!(store.search(&open_tickets).unwrap().total_matches, 2);
+    let mut enterprise = req(None, "");
+    enterprise.filters = vec![("_kind".into(), "customers".into()), ("plan".into(), "enterprise".into())];
+    assert_eq!(ids(&store.search(&enterprise).unwrap()), ["customers:C-1"]);
+    let mut per_customer = agg(Some("group"));
+    per_customer.filters = vec![("_kind".into(), "tickets".into())];
+    let out = store.aggregate(&per_customer).unwrap();
+    assert_eq!(
+        out.rows.iter().map(|r| (r.key.as_str(), r.name.as_deref(), r.records)).collect::<Vec<_>>(),
+        [("C-1", Some("Acme Corp"), 2), ("C-2", Some("Globex"), 1)]
+    );
+
+    // Upsert finds the kind from the path, or takes --kind; delete takes bare ids.
+    let more = tmp.path().join("more_tickets.csv");
+    std::fs::write(&more, "id,customer_id,subject,status,opened\nT-4,C-2,Refund stuck,open,2024-03-09\n")
+        .unwrap();
+    let unmatched = cli(&index, &["upsert", "-q", more.to_str().unwrap()]);
+    assert!(!unmatched.status.success());
+    assert!(String::from_utf8_lossy(&unmatched.stderr).contains("--kind"));
+    let upserted = cli(&index, &["upsert", "-q", "--kind", "tickets", more.to_str().unwrap()]);
+    assert!(upserted.status.success(), "{}", String::from_utf8_lossy(&upserted.stderr));
+    std::fs::write(
+        tmp.path().join("tickets.csv"),
+        "id,customer_id,subject,status,opened\nT-1,C-1,Login loop after reset,closed,2024-03-01\n",
+    )
+    .unwrap();
+    assert!(
+        cli(&index, &["upsert", "-q", tmp.path().join("tickets.csv").to_str().unwrap()]).status.success()
+    );
+    let store = open(&index);
+    assert_eq!(store.describe(5).unwrap().record_count, 6);
+    assert_eq!(store.get("T-1").unwrap().unwrap()["status"], "closed");
+    assert!(cli(&index, &["delete", "T-4", "C-2"]).status.success());
+    let store = open(&index);
+    assert_eq!(store.describe(5).unwrap().kinds.iter().map(|k| k.records).sum::<i64>(), 4);
+}
+
+#[test]
+fn init_proposes_kinds_that_index_the_same_as_inference() {
+    let tmp = tempfile::tempdir().unwrap();
+    let data = tmp.path().join("data");
+    std::fs::create_dir(&data).unwrap();
+    write_shop(&data);
+    let toml = tmp.path().join("leviathan.toml");
+    let index = tmp.path().join("a.db");
+    let init = cli(&index, &["init", data.to_str().unwrap(), "-o", toml.to_str().unwrap()]);
+    assert!(init.status.success(), "{}", String::from_utf8_lossy(&init.stderr));
+    let text = std::fs::read_to_string(&toml).unwrap();
+    assert!(
+        text.contains("[[kinds]]")
+            && text.contains("name = \"tickets\"")
+            && text.contains("name = \"customers\""),
+        "{text}"
+    );
+
+    let from_config = cli(&index, &["--json", "index", "-q", "--config", toml.to_str().unwrap()]);
+    assert!(from_config.status.success(), "{}", String::from_utf8_lossy(&from_config.stderr));
+    let inferred_index = tmp.path().join("b.db");
+    let inferred = cli(&inferred_index, &["--json", "index", "-q", data.to_str().unwrap()]);
+    let (a, b): (Value, Value) = (
+        serde_json::from_slice(&from_config.stdout).unwrap(),
+        serde_json::from_slice(&inferred.stdout).unwrap(),
+    );
+    assert_eq!(
+        (a["record_count"].clone(), a["group_count"].clone()),
+        (b["record_count"].clone(), b["group_count"].clone())
+    );
+    assert_eq!(
+        b["kinds"][0]["fields"]["group"],
+        json!("id"),
+        "customers link to the tickets' customer_id groups: {b}"
+    );
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_leviathan"))
+        .arg("--index")
+        .arg(&inferred_index)
+        .arg("mcp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    writeln!(stdin, "{}", json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})).unwrap();
+    let mut line = String::new();
+    BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
+    let init: Value = serde_json::from_str(&line).unwrap();
+    let instructions = init["result"]["instructions"].as_str().unwrap();
+    assert!(instructions.contains("of 2 kinds") && instructions.contains("_kind"), "{instructions}");
     drop(stdin);
     assert!(child.wait().unwrap().success());
 }

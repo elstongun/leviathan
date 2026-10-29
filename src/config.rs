@@ -22,6 +22,64 @@ pub struct Config {
     pub rank: Rank,
     #[serde(skip_serializing_if = "MemoryConfig::is_default")]
     pub memory: MemoryConfig,
+    /// Several kinds of record in one index, each with its own sources and
+    /// mapping. When set, `source` and `fields` are unused.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub kinds: Vec<KindConfig>,
+}
+
+/// One kind of record (`[[kinds]]`): tickets, customers, orders. Its records
+/// carry the filter `_kind = <name>` and ids of the form `<name>:<id>`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct KindConfig {
+    /// Short name: letters, digits, `_` and `-`.
+    pub name: String,
+    /// Singular noun for one record of this kind.
+    pub record: String,
+    /// Singular noun for one group of this kind.
+    pub group: String,
+    /// Files of this kind (relative to the config file), or one table of a
+    /// SQLite file as `path#table`.
+    pub paths: Vec<String>,
+    pub format: Format,
+    /// Query for a SQLite source.
+    pub sql: Option<String>,
+    pub fields: Fields,
+}
+
+impl Config {
+    /// The mapping as it applies to one kind: that kind's fields and nouns,
+    /// with the index-wide ranking.
+    pub fn for_kind(&self, kind: &KindConfig) -> Config {
+        Config {
+            about: About {
+                name: None,
+                description: None,
+                record: if kind.record.is_empty() { "record".into() } else { kind.record.clone() },
+                group: if kind.group.is_empty() { "group".into() } else { kind.group.clone() },
+            },
+            source: SourceConfig { paths: kind.paths.clone(), format: kind.format, sql: kind.sql.clone() },
+            fields: kind.fields.clone(),
+            rank: self.rank.clone(),
+            memory: Default::default(),
+            kinds: Vec::new(),
+        }
+    }
+}
+
+/// A kind name from free text: lowercase letters, digits, `_` and `-`.
+pub fn kind_name(raw: &str) -> String {
+    let mut out = String::new();
+    for c in raw.trim().chars().flat_map(char::to_lowercase) {
+        if c.is_alphanumeric() || c == '-' {
+            out.push(c);
+        } else if !out.ends_with('_') {
+            out.push('_');
+        }
+    }
+    let out = out.trim_matches('_').to_string();
+    if out.is_empty() { "records".into() } else { out }
 }
 
 /// The read/write memory store (`leviathan memory`, `--memory`). Separate
@@ -183,7 +241,8 @@ impl Config {
         let text = std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
         let mut cfg: Config = toml::from_str(&text).with_context(|| format!("parse {}", path.display()))?;
         if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
-            for p in &mut cfg.source.paths {
+            let kind_paths = cfg.kinds.iter_mut().flat_map(|k| k.paths.iter_mut());
+            for p in cfg.source.paths.iter_mut().chain(kind_paths) {
                 if p != "-" && Path::new(p).is_relative() {
                     *p = dir.join(&*p).display().to_string();
                 }
@@ -200,15 +259,16 @@ impl Config {
     }
 
     pub fn validate(&self) -> Result<()> {
-        let f = &self.fields;
-        let all = f.id.iter().chain(&f.title).chain(&f.text).chain(&f.group).chain(&f.group_name);
-        for path in all.chain(&f.date).chain(&f.filters).chain(&f.display) {
-            if path.trim().is_empty() {
-                bail!("empty field path in the mapping");
+        validate_fields(&self.fields)?;
+        let mut names = std::collections::HashSet::new();
+        for k in &self.kinds {
+            if k.name.is_empty() || kind_name(&k.name) != k.name {
+                bail!("kind name {:?} must be lowercase letters, digits, `_` or `-`", k.name);
             }
-        }
-        if f.group_name.is_some() && f.group.is_none() {
-            bail!("`group_name` needs `group`");
+            if !names.insert(k.name.as_str()) {
+                bail!("two kinds are named {:?}", k.name);
+            }
+            validate_fields(&k.fields).with_context(|| format!("kind {:?}", k.name))?;
         }
         if !(self.rank.title_weight.is_finite() && self.rank.title_weight >= 0.0) {
             bail!("`rank.title_weight` must be a non-negative number");
@@ -239,6 +299,19 @@ impl Config {
     pub fn to_toml(&self) -> String {
         toml::to_string(self).unwrap_or_default()
     }
+}
+
+fn validate_fields(f: &Fields) -> Result<()> {
+    let all = f.id.iter().chain(&f.title).chain(&f.text).chain(&f.group).chain(&f.group_name);
+    for path in all.chain(&f.date).chain(&f.filters).chain(&f.display) {
+        if path.trim().is_empty() {
+            bail!("empty field path in the mapping");
+        }
+    }
+    if f.group_name.is_some() && f.group.is_none() {
+        bail!("`group_name` needs `group`");
+    }
+    Ok(())
 }
 
 /// Plural of a configured noun, for headers like "33 log lines".

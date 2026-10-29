@@ -332,6 +332,30 @@ pub fn ingest(r: &IngestReport) -> String {
             "  review it with `leviathan describe`; customize with `leviathan init` + `leviathan index --force`"
         );
     }
+    if !r.kinds.is_empty() {
+        let inferred =
+            if r.kinds.iter().any(|k| k.fields.is_some()) { ", inferred from the data" } else { "" };
+        let _ = writeln!(out, "  {} kinds{inferred} (ids are <kind>:<id>, filter `_kind`):", r.kinds.len());
+        for k in &r.kinds {
+            let mut line = format!(
+                "    {}: {} from {}",
+                k.name,
+                count(k.records, &k.record),
+                count(k.sources as i64, "source")
+            );
+            if let Some(f) = &k.fields {
+                let none = || "-".to_string();
+                let _ = write!(
+                    line,
+                    " · id {} · group {} · date {}",
+                    f.id.clone().unwrap_or_else(none),
+                    f.group.clone().unwrap_or_else(none),
+                    f.date.first().cloned().unwrap_or_else(none)
+                );
+            }
+            let _ = writeln!(out, "{line}");
+        }
+    }
     out
 }
 
@@ -368,6 +392,32 @@ pub fn memory_stats(s: &crate::memory::MemoryStats) -> String {
     out
 }
 
+fn field_lines(out: &mut String, f: &crate::config::Fields, group: &str, indent: &str) {
+    let mut line = Vec::new();
+    line.push(format!("id {}", f.id.as_deref().unwrap_or("<file>:<line>")));
+    if !f.title.is_empty() {
+        line.push(format!("title {}", f.title.join(" | ")));
+    }
+    if let Some(g) = &f.group {
+        line.push(match &f.group_name {
+            Some(n) => format!("{group} {g} (name {n})"),
+            None => format!("{group} {g}"),
+        });
+    }
+    if !f.date.is_empty() {
+        line.push(format!("date {}", f.date.join(" | ")));
+    }
+    let _ = writeln!(out, "{indent}{}", line.join(" · "));
+    let _ = writeln!(
+        out,
+        "{indent}searched: {}",
+        if f.text.is_empty() { "every string".into() } else { f.text.join(", ") }
+    );
+    if !f.display.is_empty() {
+        let _ = writeln!(out, "{indent}shown on cards: {}", f.display.join(", "));
+    }
+}
+
 pub fn describe(d: &Description) -> String {
     let (record, group) = (d.about.record.as_str(), d.about.group.as_str());
     let mut out = format!("leviathan index {}", d.index_path.display());
@@ -395,30 +445,20 @@ pub fn describe(d: &Description) -> String {
         let _ = writeln!(out, "  updated {u}");
     }
 
-    let f = &d.fields;
-    let _ = writeln!(out, "fields{}:", if d.mapping_inferred { " (inferred)" } else { "" });
-    let mut line = Vec::new();
-    line.push(format!("id {}", f.id.as_deref().unwrap_or("<file>:<line>")));
-    if !f.title.is_empty() {
-        line.push(format!("title {}", f.title.join(" | ")));
-    }
-    if let Some(g) = &f.group {
-        line.push(match &f.group_name {
-            Some(n) => format!("{group} {g} (name {n})"),
-            None => format!("{group} {g}"),
-        });
-    }
-    if !f.date.is_empty() {
-        line.push(format!("date {}", f.date.join(" | ")));
-    }
-    let _ = writeln!(out, "  {}", line.join(" · "));
-    let _ = writeln!(
-        out,
-        "  searched: {}",
-        if f.text.is_empty() { "every string".into() } else { f.text.join(", ") }
-    );
-    if !f.display.is_empty() {
-        let _ = writeln!(out, "  shown on cards: {}", f.display.join(", "));
+    let inferred = if d.mapping_inferred { " (inferred)" } else { "" };
+    if d.kinds.is_empty() {
+        let _ = writeln!(out, "fields{inferred}:");
+        field_lines(&mut out, &d.fields, group, "  ");
+    } else {
+        let _ = writeln!(
+            out,
+            "{} kinds{inferred} (ids are <kind>:<id>; --where _kind=<kind> keeps one, --by _kind counts each):",
+            d.kinds.len()
+        );
+        for k in &d.kinds {
+            let _ = writeln!(out, "  {}: {}", k.name, count(k.records, &k.record));
+            field_lines(&mut out, &k.fields, &k.group, "    ");
+        }
     }
     if !d.filters.is_empty() {
         let _ = writeln!(out, "filters (--where field=value; repeat a field for any-of):");
@@ -453,7 +493,9 @@ pub fn describe(d: &Description) -> String {
         let _ = writeln!(out, "largest {}: {}", plural(group), top.join(" · "));
     }
     let _ = writeln!(out, "try:");
-    if f.group.is_some() {
+    let any_group = d.fields.group.is_some() || d.kinds.iter().any(|k| k.fields.group.is_some());
+    let any_date = !d.fields.date.is_empty() || d.kinds.iter().any(|k| !k.fields.date.is_empty());
+    if any_group {
         let _ = writeln!(out, "  leviathan search -g <{group}> \"<words>\"     # ranked, within one {group}");
         let _ = writeln!(
             out,
@@ -467,7 +509,7 @@ pub fn describe(d: &Description) -> String {
     {
         let _ = writeln!(out, "  leviathan search \"<words>\" --where {}={}", first.0, first.1);
     }
-    if !f.date.is_empty() {
+    if any_date {
         let _ = writeln!(out, "  leviathan search \"<words>\" --since 2024-01 --until 2024-06");
     }
     if let Some(id) = &d.example_id {

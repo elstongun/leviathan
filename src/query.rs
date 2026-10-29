@@ -22,8 +22,8 @@ use serde::Serialize;
 
 use crate::card::{Card, CardOptions};
 use crate::config::{About, Config, Fields, Rank, plural};
-use crate::fields::{FieldPath, Mapping};
-use crate::index::{check_schema, meta, open_ro, stored_config};
+use crate::fields::{FieldPath, KIND_FILTER, Mappings};
+use crate::index::{check_schema, meta, open_ro, resolve_id, stored_config};
 use crate::text::{Query, facet_token, group_token, normalize_bound, normalize_name};
 
 const FUZZY_CUTOFF: f64 = 0.6;
@@ -148,6 +148,9 @@ pub struct Description {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub date_max: Option<String>,
     pub filters: Vec<FacetSummary>,
+    /// Each kind of record, in an index that holds several.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub kinds: Vec<KindSummary>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub largest_groups: Vec<GroupMatch>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -161,6 +164,15 @@ pub struct Description {
     pub schema_version: String,
 }
 
+#[derive(Debug, Serialize)]
+pub struct KindSummary {
+    pub name: String,
+    pub record: String,
+    pub group: String,
+    pub records: i64,
+    pub fields: Fields,
+}
+
 enum Pick {
     One(GroupMatch),
     Many(Vec<GroupMatch>),
@@ -171,7 +183,7 @@ pub struct Store {
     conn: Connection,
     path: PathBuf,
     stamp: Option<(u64, SystemTime)>,
-    mapping: Mapping,
+    mappings: Mappings,
     pub card_opts: CardOptions,
 }
 
@@ -191,8 +203,8 @@ impl Store {
         }
         let conn = open_ro(path).with_context(|| format!("open index {}", path.display()))?;
         check_schema(&conn, path)?;
-        let mapping = Mapping::new(&stored_config(&conn)?)?;
-        Ok(Self { conn, path: path.to_path_buf(), stamp: file_stamp(path), mapping, card_opts })
+        let mappings = Mappings::new(&stored_config(&conn)?)?;
+        Ok(Self { conn, path: path.to_path_buf(), stamp: file_stamp(path), mappings, card_opts })
     }
 
     /// Reopen when the index file was atomically replaced by a rebuild.
@@ -206,7 +218,11 @@ impl Store {
     }
 
     pub fn config(&self) -> &Config {
-        &self.mapping.config
+        &self.mappings.config
+    }
+
+    pub fn mappings(&self) -> &Mappings {
+        &self.mappings
     }
 
     fn meta(&self, key: &str) -> Result<Option<String>> {
@@ -239,7 +255,7 @@ impl Store {
     /// Group key or name to candidates, best tier first.
     pub fn resolve(&self, query: &str, limit: usize) -> Result<Vec<GroupMatch>> {
         let query = query.trim();
-        if query.is_empty() || !self.mapping.has_group() {
+        if query.is_empty() || !self.mappings.has_group() {
             return Ok(Vec::new());
         }
         let limit = limit.clamp(1, MAX_LIMIT);
@@ -333,7 +349,8 @@ impl Store {
             Ok(out)
         };
 
-        let filterable: Vec<&str> = self.mapping.filters.iter().map(|p| p.raw.as_str()).collect();
+        let filter_fields = self.mappings.filter_fields();
+        let filterable: Vec<&str> = filter_fields.iter().map(String::as_str).collect();
         for (field, _) in &req.filters {
             if !filterable.contains(&field.as_str()) {
                 let available =
@@ -348,12 +365,12 @@ impl Store {
         }
         out.since = req.since.as_deref().and_then(normalize_bound);
         out.until = req.until.as_deref().and_then(normalize_bound);
-        if (out.since.is_some() || out.until.is_some()) && !self.mapping.has_date() {
+        if (out.since.is_some() || out.until.is_some()) && !self.mappings.has_date() {
             return bad(out, "this index has no date field, so --since/--until cannot apply".into());
         }
 
         if let Some(group) = &req.group {
-            if !self.mapping.has_group() {
+            if !self.mappings.has_group() {
                 return bad(out, "this index has no group field; search without one".into());
             }
             match self.pick(group)? {
@@ -562,25 +579,34 @@ impl Store {
             .conn
             .prepare_cached("SELECT id, doc FROM records WHERE rowid = ?1")?
             .query_row([rowid], |r| Ok((r.get(0)?, r.get(1)?)))?;
-        Card::build(&id, &doc, &self.mapping, self.card_opts, highlight)
+        Card::build(&id, &doc, self.mappings.for_id(&id), self.card_opts, highlight)
+    }
+
+    /// The stored id for `id`, accepting a bare id in an index with several kinds.
+    fn stored_id(&self, id: &str) -> Result<Option<String>> {
+        resolve_id(&self.conn, &self.mappings.kind_names(), id.trim())
     }
 
     /// The result card for one record id.
     pub fn card_by_id(&self, id: &str) -> Result<Option<Card>> {
+        let Some(id) = self.stored_id(id)? else { return Ok(None) };
         let found: Option<(String, String)> = self
             .conn
             .prepare_cached("SELECT id, doc FROM records WHERE id = ?1")?
-            .query_row([id.trim()], |r| Ok((r.get(0)?, r.get(1)?)))
+            .query_row([id.as_str()], |r| Ok((r.get(0)?, r.get(1)?)))
             .optional()?;
-        found.map(|(id, doc)| Card::build(&id, &doc, &self.mapping, self.card_opts, &[])).transpose()
+        found
+            .map(|(id, doc)| Card::build(&id, &doc, self.mappings.for_id(&id), self.card_opts, &[]))
+            .transpose()
     }
 
     /// Full stored record, exactly as ingested.
     pub fn get(&self, id: &str) -> Result<Option<serde_json::Value>> {
+        let Some(id) = self.stored_id(id)? else { return Ok(None) };
         let raw: Option<String> = self
             .conn
             .prepare_cached("SELECT doc FROM records WHERE id = ?1")?
-            .query_row([id.trim()], |r| r.get(0))
+            .query_row([id.as_str()], |r| r.get(0))
             .optional()?;
         raw.map(|r| serde_json::from_str(&r).map_err(Into::into)).transpose()
     }
@@ -590,19 +616,38 @@ impl Store {
     pub fn describe(&self, top: usize) -> Result<Description> {
         let cfg = self.config();
         let mut filters = Vec::new();
-        for p in &self.mapping.filters {
+        for field in self.mappings.filter_fields() {
             let distinct: i64 =
                 self.conn
-                    .query_row("SELECT COUNT(*) FROM facets WHERE field = ?1", [&p.raw], |r| r.get(0))?;
+                    .query_row("SELECT COUNT(*) FROM facets WHERE field = ?1", [&field], |r| r.get(0))?;
             let top_values = self
                 .conn
                 .prepare_cached(
                     "SELECT value, count FROM facets WHERE field = ?1 ORDER BY count DESC, value LIMIT ?2",
                 )?
-                .query_map(rusqlite::params![p.raw, top as i64], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .query_map(rusqlite::params![field, top as i64], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<rusqlite::Result<_>>()?;
-            filters.push(FacetSummary { field: p.raw.clone(), distinct, top: top_values });
+            filters.push(FacetSummary { field, distinct, top: top_values });
         }
+        let counts: std::collections::HashMap<String, i64> = self
+            .conn
+            .prepare_cached("SELECT key, count FROM facets WHERE field = ?1")?
+            .query_map([KIND_FILTER], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let kinds = cfg
+            .kinds
+            .iter()
+            .map(|k| {
+                let about = cfg.for_kind(k).about;
+                KindSummary {
+                    name: k.name.clone(),
+                    record: about.record,
+                    group: about.group,
+                    records: counts.get(&k.name.to_lowercase()).copied().unwrap_or(0),
+                    fields: k.fields.clone(),
+                }
+            })
+            .collect();
         let largest_groups = self
             .conn
             .prepare_cached(
@@ -622,6 +667,7 @@ impl Store {
             date_min: nonempty(self.meta("date_min")?),
             date_max: nonempty(self.meta("date_max")?),
             filters,
+            kinds,
             largest_groups,
             example_id: self
                 .conn
@@ -805,7 +851,8 @@ impl Store {
             Ok(out)
         };
 
-        let filterable: Vec<&str> = self.mapping.filters.iter().map(|p| p.raw.as_str()).collect();
+        let filter_fields = self.mappings.filter_fields();
+        let filterable: Vec<&str> = filter_fields.iter().map(String::as_str).collect();
         for (field, _) in &req.filters {
             if !filterable.contains(&field.as_str()) {
                 return bad(
@@ -821,7 +868,7 @@ impl Store {
         }
         out.since = req.since.as_deref().and_then(normalize_bound);
         out.until = req.until.as_deref().and_then(normalize_bound);
-        if (out.since.is_some() || out.until.is_some()) && !self.mapping.has_date() {
+        if (out.since.is_some() || out.until.is_some()) && !self.mappings.has_date() {
             return bad(out, "this index has no date field, so since/until cannot apply".into());
         }
         let field = match (req.metric, req.field.as_deref().map(str::trim).filter(|f| !f.is_empty())) {
@@ -855,15 +902,15 @@ impl Store {
                 );
             }
         };
-        if matches!(by, By::Group) && !self.mapping.has_group() {
+        if matches!(by, By::Group) && !self.mappings.has_group() {
             return bad(out, "this index has no group field, so it cannot aggregate by group".into());
         }
-        if matches!(by, By::Date(_)) && !self.mapping.has_date() {
+        if matches!(by, By::Date(_)) && !self.mappings.has_date() {
             return bad(out, "this index has no date field, so it cannot aggregate by date".into());
         }
 
         if let Some(group) = &req.group {
-            if !self.mapping.has_group() {
+            if !self.mappings.has_group() {
                 return bad(out, "this index has no group field; aggregate without one".into());
             }
             match self.pick(group)? {
@@ -1000,6 +1047,13 @@ impl Store {
                 .collect();
             rows.sort_by(|a, b| b.value.total_cmp(&a.value).then_with(|| a.key.cmp(&b.key)));
             rows.truncate(limit);
+            if matches!(by, By::Group) {
+                // Records of one kind may not carry the group's name; the group does.
+                let mut name = self.conn.prepare_cached("SELECT name FROM groups WHERE key = ?1")?;
+                for row in rows.iter_mut().filter(|r| r.name.is_none() && !r.key.is_empty()) {
+                    row.name = name.query_row([&row.key], |r| r.get(0)).optional()?.flatten();
+                }
+            }
             out.rows = rows;
         }
         if let Some(path) = &field

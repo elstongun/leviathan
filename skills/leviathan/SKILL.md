@@ -21,6 +21,11 @@ event/host, ...), the fields that are searched, the **filter fields with their
 common values**, the date range, and example calls. Run it once per session
 before searching, and use its exact field names in `--where`.
 
+An index may hold **several kinds** of record (tickets, customers, orders).
+`describe` lists them; ids read `<kind>:<id>`; `--where _kind=<kind>` keeps
+one kind and `aggregate --by _kind` counts each. A customer's group can hold
+their tickets and orders and the customer record itself.
+
 ## Search
 
 ```bash
@@ -72,7 +77,8 @@ candidates and ask which one the user means. **Never guess the group.**
 ## No index yet?
 
 ```bash
-leviathan init <files|dir|db.sqlite> -o leviathan.toml   # proposes a field mapping, with reasons
+leviathan index <dir>                                    # everything in it, a kind per dataset, mappings inferred
+leviathan init <files|dir|db.sqlite> -o leviathan.toml   # or: propose a field mapping, with reasons
 # review and edit leviathan.toml (id, title, text, group, date, filters)
 leviathan index                                          # reads source.paths from leviathan.toml
 leviathan describe
