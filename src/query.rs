@@ -11,7 +11,7 @@
 //! 4. If a group has no match, fall back to clearly labeled matches from
 //!    other groups.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -695,6 +695,8 @@ pub enum Metric {
     Avg,
     Min,
     Max,
+    /// Different values of `field` per bucket.
+    Distinct,
 }
 
 impl Metric {
@@ -705,6 +707,7 @@ impl Metric {
             "avg" | "mean" | "average" => Self::Avg,
             "min" => Self::Min,
             "max" => Self::Max,
+            "distinct" | "count_distinct" | "unique" => Self::Distinct,
             _ => return None,
         })
     }
@@ -719,19 +722,27 @@ pub struct AggregateRequest {
     /// Every group whose key or name contains this text.
     pub group_contains: Option<String>,
     pub filters: Vec<(String, String)>,
+    /// Conditions on number fields: `hours>4`, `total<=100`, `qty=0`.
+    pub numeric: Vec<String>,
     pub since: Option<String>,
     pub until: Option<String>,
-    /// `group`, `year`, `month`, `day`, or a filter field; none for totals.
+    /// Up to two of `group`, `year`, `month`, `day`, a filter field or any
+    /// field path, comma-separated (`group,month`); none for totals.
     pub by: Option<String>,
     pub metric: Metric,
-    /// Numeric field for sum/avg/min/max.
+    /// The field for sum/avg/min/max (numbers) or distinct (any values).
     pub field: Option<String>,
     pub limit: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AggregateRow {
+    /// The bucket; with two `by` dimensions, both keys joined by ` · `.
     pub key: String,
+    /// Each dimension's key, with two `by` dimensions.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub keys: Vec<String>,
+    /// The group's name, when a dimension is the group.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub records: i64,
@@ -756,6 +767,8 @@ pub struct AggregateOutcome {
     pub group_contains: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub filters: Vec<Filter>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub numeric: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub since: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -764,7 +777,7 @@ pub struct AggregateOutcome {
     pub records: i64,
     /// The metric over every matched record (the count, for `count`).
     pub value: f64,
-    /// Distinct bucket keys, before `limit`.
+    /// Distinct buckets, before `limit`.
     pub buckets: i64,
     /// Largest value first.
     pub rows: Vec<AggregateRow>,
@@ -782,7 +795,7 @@ struct Acc {
     sum: f64,
     min: f64,
     max: f64,
-    name: Option<String>,
+    distinct: HashSet<String>,
 }
 
 impl Acc {
@@ -801,6 +814,7 @@ impl Acc {
         let round = |v: f64| (v * 1e6).round() / 1e6;
         match metric {
             Metric::Count => self.records as f64,
+            Metric::Distinct => self.distinct.len() as f64,
             Metric::Sum => round(self.sum),
             Metric::Avg if self.n > 0 => round(self.sum / self.n as f64),
             Metric::Min | Metric::Max if self.n == 0 => 0.0,
@@ -819,10 +833,66 @@ fn number(v: &serde_json::Value) -> Option<f64> {
     }
 }
 
+/// A scalar as bucket text; objects, arrays and blanks give none.
+fn scalar_text(v: &serde_json::Value) -> Option<String> {
+    let text = match v {
+        serde_json::Value::String(s) => s.trim().to_string(),
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        _ => return None,
+    };
+    (!text.is_empty()).then(|| text.chars().take(200).collect())
+}
+
+/// `hours>4`: true when any number at the path compares so.
+struct Condition {
+    path: FieldPath,
+    op: &'static str,
+    value: f64,
+}
+
+impl Condition {
+    fn parse(raw: &str) -> Option<Condition> {
+        for op in [">=", "<=", "!=", ">", "<", "="] {
+            if let Some((field, value)) = raw.split_once(op) {
+                let field = field.trim();
+                let value: f64 = value.trim().replace(',', "").parse().ok()?;
+                return (!field.is_empty() && value.is_finite()).then(|| Condition {
+                    path: FieldPath::parse(field),
+                    op,
+                    value,
+                });
+            }
+        }
+        None
+    }
+
+    fn holds(&self, doc: &serde_json::Value) -> bool {
+        self.path.values(doc).into_iter().filter_map(number).any(|v| match self.op {
+            ">=" => v >= self.value,
+            "<=" => v <= self.value,
+            "!=" => v != self.value,
+            ">" => v > self.value,
+            "<" => v < self.value,
+            _ => v == self.value,
+        })
+    }
+}
+
+/// One way of splitting records into buckets.
+enum Dim {
+    Group,
+    Date(usize),
+    Facet(String),
+    Field(FieldPath),
+}
+
 impl Store {
-    /// Count records, or sum/average/min/max a numeric field, over the
-    /// records a search would select, optionally per group, date bucket or
-    /// filter value. Exact: every matching record is counted, none ranked.
+    /// Count records, count the different values of a field, or sum, average,
+    /// min or max a numeric field, over the records a search would select
+    /// (and that meet numeric conditions), in total or split by up to two of
+    /// group, date unit, filter field or any field. Exact: every matching
+    /// record is counted, none ranked.
     pub fn aggregate(&self, req: &AggregateRequest) -> Result<AggregateOutcome> {
         let about = self.config().about.clone();
         let limit = req.limit.clamp(1, 200);
@@ -836,6 +906,7 @@ impl Store {
             candidates: Vec::new(),
             group_contains: req.group_contains.clone().filter(|s| !s.trim().is_empty()),
             filters: req.filters.iter().map(|(f, v)| Filter { field: f.clone(), value: v.clone() }).collect(),
+            numeric: req.numeric.clone(),
             since: None,
             until: None,
             records: 0,
@@ -861,6 +932,20 @@ impl Store {
                 );
             }
         }
+        let mut conditions = Vec::new();
+        for raw in req.numeric.iter().filter(|r| !r.trim().is_empty()) {
+            match Condition::parse(raw) {
+                Some(c) => conditions.push(c),
+                None => {
+                    return bad(
+                        out,
+                        format!(
+                            "numeric condition {raw:?} must be <field><op><number>, op one of > >= < <= = !="
+                        ),
+                    );
+                }
+            }
+        }
         for raw in [&req.since, &req.until].into_iter().flatten() {
             if normalize_bound(raw).is_none() {
                 return bad(out, format!("unrecognized date {raw:?}; use YYYY, YYYY-MM or YYYY-MM-DD"));
@@ -875,38 +960,31 @@ impl Store {
             (Metric::Count, _) => None,
             (_, Some(f)) => Some(FieldPath::parse(f)),
             (_, None) => {
-                return bad(out, "sum, avg, min and max need `field`, the numeric field to aggregate".into());
-            }
-        };
-        // How each record is keyed.
-        enum By {
-            Total,
-            Group,
-            Date(usize),
-            Facet(String),
-        }
-        let by = match req.by.as_deref().map(str::trim).filter(|b| !b.is_empty()) {
-            None => By::Total,
-            Some("group") => By::Group,
-            Some("year") => By::Date(4),
-            Some("month") => By::Date(7),
-            Some("day") => By::Date(10),
-            Some(f) if filterable.contains(&f) => By::Facet(f.to_string()),
-            Some(f) => {
                 return bad(
                     out,
-                    format!(
-                        "cannot aggregate by `{f}`; use group, year, month, day, or a filter field: {}",
-                        filterable.join(", ")
-                    ),
+                    "sum, avg, min, max and distinct need `field`, the field to aggregate".into(),
                 );
             }
         };
-        if matches!(by, By::Group) && !self.mappings.has_group() {
-            return bad(out, "this index has no group field, so it cannot aggregate by group".into());
+        let mut dims = Vec::new();
+        for raw in req.by.iter().flat_map(|b| b.split(',')).map(str::trim).filter(|b| !b.is_empty()) {
+            dims.push(match raw {
+                "group" if !self.mappings.has_group() => {
+                    return bad(out, "this index has no group field, so it cannot aggregate by group".into());
+                }
+                "year" | "month" | "day" if !self.mappings.has_date() => {
+                    return bad(out, "this index has no date field, so it cannot aggregate by date".into());
+                }
+                "group" => Dim::Group,
+                "year" => Dim::Date(4),
+                "month" => Dim::Date(7),
+                "day" => Dim::Date(10),
+                f if filterable.contains(&f) => Dim::Facet(f.to_string()),
+                f => Dim::Field(FieldPath::parse(f)),
+            });
         }
-        if matches!(by, By::Date(_)) && !self.mappings.has_date() {
-            return bad(out, "this index has no date field, so it cannot aggregate by date".into());
+        if dims.len() > 2 {
+            return bad(out, "`by` takes at most two dimensions, e.g. `group,month`".into());
         }
 
         if let Some(group) = &req.group {
@@ -979,88 +1057,130 @@ impl Store {
         }
         let where_sql = clauses.join(" AND ");
 
-        let (key_sql, from_sql) = match &by {
-            By::Total => ("''".to_string(), "records AS r".to_string()),
-            By::Group => ("coalesce(r.grp, '')".to_string(), "records AS r".to_string()),
-            By::Date(n) => (format!("coalesce(substr(r.date, 1, {n}), '')"), "records AS r".to_string()),
-            By::Facet(f) => {
-                args.push(SqlValue::Text(f.clone()));
-                let n = args.len();
-                (
-                    "json_extract(j.value, '$[1]')".to_string(),
-                    // LEFT: a record without the field lands in the "(none)"
-                    // bucket, as for groups and dates, and still counts in the total.
-                    format!(
-                        "records AS r LEFT JOIN json_each(coalesce(r.facets, '[]')) AS j ON json_extract(j.value, '$[0]') = ?{n}"
-                    ),
-                )
-            }
-        };
-        let total: i64 = self.conn.query_row(
-            &format!("SELECT count(*) FROM records AS r WHERE {where_sql}"),
-            params_from_iter(args.iter().take(args.len() - usize::from(matches!(by, By::Facet(_))))),
-            |r| r.get(0),
-        )?;
-        out.records = total;
-
-        let mut buckets: BTreeMap<String, Acc> = BTreeMap::new();
-        let mut overall = Acc::default();
-        let doc_col = if field.is_some() { "r.doc" } else { "NULL" };
-        let sql =
-            format!("SELECT {key_sql}, r.grp_name, {doc_col}, r.rowid FROM {from_sql} WHERE {where_sql}");
+        let need_doc =
+            field.is_some() || !conditions.is_empty() || dims.iter().any(|d| matches!(d, Dim::Field(_)));
+        let need_facets = dims.iter().any(|d| matches!(d, Dim::Facet(_)));
+        let sql = format!(
+            "SELECT r.grp, r.date, {}, {} FROM records AS r WHERE {where_sql}",
+            if need_facets { "r.facets" } else { "NULL" },
+            if need_doc { "r.doc" } else { "NULL" }
+        );
         let mut stmt = self.conn.prepare(&sql)?;
         let mut rows = stmt.query(params_from_iter(args.iter()))?;
-        // A record with several values of a facet lands in several buckets
-        // but counts once overall.
-        let mut counted = std::collections::HashSet::new();
+        let mut buckets: BTreeMap<Vec<String>, Acc> = BTreeMap::new();
+        let mut overall = Acc::default();
+        let mut seen_field_values = vec![false; dims.len()];
         while let Some(row) = rows.next()? {
-            let key: Option<String> = row.get(0)?;
-            let acc = buckets.entry(key.unwrap_or_default()).or_default();
-            acc.records += 1;
-            if acc.name.is_none() && matches!(by, By::Group) {
-                acc.name = row.get(1)?;
+            let grp: Option<String> = row.get(0)?;
+            let date: Option<String> = row.get(1)?;
+            let facets: Option<String> = row.get(2)?;
+            let doc: Option<serde_json::Value> =
+                row.get::<_, Option<String>>(3)?.map(|d| serde_json::from_str(&d)).transpose()?;
+            if !conditions.iter().all(|c| doc.as_ref().is_some_and(|d| c.holds(d))) {
+                continue;
             }
-            if let Some(path) = &field {
-                let doc: String = row.get(2)?;
-                let doc: serde_json::Value = serde_json::from_str(&doc)?;
-                let first = counted.insert(row.get::<_, i64>(3)?);
-                for v in path.values(&doc).into_iter().filter_map(number) {
-                    acc.add(v);
-                    if first {
-                        overall.add(v);
+            overall.records += 1;
+            let facet_pairs: Vec<(String, String)> =
+                facets.as_deref().and_then(|f| serde_json::from_str(f).ok()).unwrap_or_default();
+            // Each dimension's keys for this record (several for a list field).
+            let mut parts: Vec<Vec<String>> = Vec::with_capacity(dims.len());
+            for (i, dim) in dims.iter().enumerate() {
+                let mut keys: Vec<String> = match dim {
+                    Dim::Group => vec![grp.clone().unwrap_or_default()],
+                    Dim::Date(n) => {
+                        vec![date.as_deref().map(|d| d.chars().take(*n).collect()).unwrap_or_default()]
                     }
+                    Dim::Facet(f) => {
+                        facet_pairs.iter().filter(|(k, _)| k == f).map(|(_, v)| v.clone()).collect()
+                    }
+                    Dim::Field(p) => doc
+                        .as_ref()
+                        .map(|d| p.values(d).into_iter().filter_map(scalar_text).collect())
+                        .unwrap_or_default(),
+                };
+                keys.sort_unstable();
+                keys.dedup();
+                if keys.is_empty() {
+                    keys.push(String::new());
+                } else if keys.iter().any(|k| !k.is_empty()) {
+                    seen_field_values[i] = true;
                 }
+                parts.push(keys);
+            }
+            let combos: Vec<Vec<String>> = match parts.as_slice() {
+                [] => vec![Vec::new()],
+                [a] => a.iter().map(|k| vec![k.clone()]).collect(),
+                [a, b] => a.iter().flat_map(|x| b.iter().map(move |y| vec![x.clone(), y.clone()])).collect(),
+                _ => unreachable!("at most two dimensions"),
+            };
+            let numbers: Vec<f64> = match (&field, req.metric) {
+                (Some(p), Metric::Sum | Metric::Avg | Metric::Min | Metric::Max) => doc
+                    .as_ref()
+                    .map(|d| p.values(d).into_iter().filter_map(number).collect())
+                    .unwrap_or_default(),
+                _ => Vec::new(),
+            };
+            let texts: Vec<String> = match (&field, req.metric) {
+                (Some(p), Metric::Distinct) => doc
+                    .as_ref()
+                    .map(|d| p.values(d).into_iter().filter_map(scalar_text).collect())
+                    .unwrap_or_default(),
+                _ => Vec::new(),
+            };
+            numbers.iter().for_each(|v| overall.add(*v));
+            overall.distinct.extend(texts.iter().cloned());
+            for combo in combos {
+                let acc = buckets.entry(combo).or_default();
+                acc.records += 1;
+                numbers.iter().for_each(|v| acc.add(*v));
+                acc.distinct.extend(texts.iter().cloned());
             }
         }
-        overall.records = total;
+        out.records = overall.records;
         out.value = overall.value(req.metric);
-        if !matches!(by, By::Total) {
+        if !dims.is_empty() {
             out.buckets = buckets.len() as i64;
             let mut rows: Vec<AggregateRow> = buckets
                 .into_iter()
-                .map(|(key, acc)| AggregateRow {
+                .map(|(parts, acc)| AggregateRow {
                     value: acc.value(req.metric),
                     records: acc.records,
-                    name: acc.name.clone(),
-                    key,
+                    name: None,
+                    key: parts.join(" · "),
+                    keys: if parts.len() > 1 { parts } else { Vec::new() },
                 })
                 .collect();
             rows.sort_by(|a, b| b.value.total_cmp(&a.value).then_with(|| a.key.cmp(&b.key)));
             rows.truncate(limit);
-            if matches!(by, By::Group) {
-                // Records of one kind may not carry the group's name; the group does.
+            if let Some(g) = dims.iter().position(|d| matches!(d, Dim::Group)) {
                 let mut name = self.conn.prepare_cached("SELECT name FROM groups WHERE key = ?1")?;
-                for row in rows.iter_mut().filter(|r| r.name.is_none() && !r.key.is_empty()) {
-                    row.name = name.query_row([&row.key], |r| r.get(0)).optional()?.flatten();
+                for row in rows.iter_mut() {
+                    let key = if row.keys.is_empty() { row.key.clone() } else { row.keys[g].clone() };
+                    if !key.is_empty() {
+                        row.name = name.query_row([&key], |r| r.get(0)).optional()?.flatten();
+                    }
                 }
             }
             out.rows = rows;
         }
+        for (dim, seen) in dims.iter().zip(&seen_field_values) {
+            if let Dim::Field(p) = dim
+                && !seen
+                && out.records > 0
+            {
+                out.notes.push(format!(
+                    "no values at `{}` in the matched records; check the field name in describe",
+                    p.raw
+                ));
+            }
+        }
         if let Some(path) = &field
+            && out.records > 0
             && overall.n == 0
-            && total > 0
+            && overall.distinct.is_empty()
         {
-            out.notes.push(format!("no numeric values at `{}` in the matched records", path.raw));
+            let kind = if req.metric == Metric::Distinct { "values" } else { "numeric values" };
+            out.notes.push(format!("no {kind} at `{}` in the matched records", path.raw));
         }
         Ok(out)
     }

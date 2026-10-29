@@ -211,6 +211,8 @@ fn base_words(leaf: &str) -> Vec<String> {
 }
 
 const ID_HINTS: &[&str] = &["id", "uuid", "guid", "key", "pk", "number", "ref"];
+/// Codes that stand for a named thing (`parts[].sku` beside `parts[].name`).
+const ID_LIKE: &[&str] = &["id", "uuid", "guid", "key", "pk", "number", "ref", "sku", "code"];
 const DATE_HINTS: &[&str] = &[
     "date",
     "timestamp",
@@ -346,9 +348,24 @@ pub fn propose(profile: Profile, sources: &[Source]) -> Proposal {
         .fields
         .iter()
         .filter(|f| !f.in_array && f.bools == 0 && share(f) >= 0.5 && !taken.contains(&f.path))
-        .filter(|f| f.distinct >= 2 && !f.distinct_capped && (f.distinct as f64) <= (n as f64 / 4.0).max(2.0))
         .filter(|f| f.avg_chars <= 64.0 && f.date_share < 0.5)
         .filter(|f| name_score(&f.path, GROUP_HINTS) > 0 || group_name_for(&profile, &f.path).is_some())
+        .filter(|f| {
+            // How many distinct values a group may have in the sample: many
+            // when the evidence is strong (`asset.id` beside `asset.name`, a
+            // thousand machines in a two-thousand-record sample), few otherwise.
+            let hinted = name_score(&f.path, GROUP_HINTS) > 0;
+            let named = group_name_for(&profile, &f.path).is_some();
+            let share_of_values = match (hinted, named) {
+                (true, true) => 0.9,
+                (true, false) => 0.5,
+                _ => 0.25,
+            };
+            f.distinct >= 2
+                && !f.distinct_capped
+                && f.distinct < f.values
+                && (f.distinct as f64) <= (f.values as f64 * share_of_values).max(2.0)
+        })
         .max_by_key(|f| {
             (name_score(&f.path, GROUP_HINTS), group_name_for(&profile, &f.path).is_some(), f.present)
         })
@@ -382,14 +399,31 @@ pub fn propose(profile: Profile, sources: &[Source]) -> Proposal {
         .fields
         .iter()
         .filter(|f| !taken.contains(&f.path) && share(f) >= 0.2)
-        .filter(|f| f.distinct >= 2 && f.distinct <= 50 && f.distinct < f.values && !f.distinct_capped)
+        // Names in lists (parts used, technicians on a job) repeat across
+        // records but have more values than a status does.
+        .filter(|f| {
+            let cap = if f.in_array { 200 } else { 50 };
+            f.distinct >= 2 && f.distinct <= cap && f.distinct < f.values && !f.distinct_capped
+        })
         .filter(|f| f.avg_chars <= 40.0)
         .filter(|f| f.date_share < 0.5 && (f.strings > 0 || f.bools > 0))
         .collect();
+    // `plan.id` beside `plan.name` names the same thing: keep the name.
+    let id_twin = |id: &FieldStats, name: &FieldStats| {
+        let parent = split_path(&id.path).0;
+        id.path != name.path
+            && !parent.is_empty()
+            && parent == split_path(&name.path).0
+            && name_score(&id.path, ID_LIKE) > 0
+            && name_score(&name.path, ID_LIKE) == 0
+            && (id.distinct, id.values, id.present) == (name.distinct, name.values, name.present)
+    };
+    let all = filters.clone();
+    filters.retain(|f| !all.iter().any(|g| id_twin(f, g)));
     filters.sort_by_key(|f| std::cmp::Reverse((name_score(&f.path, FILTER_HINTS), f.present)));
-    let filters: Vec<String> = filters.iter().take(8).map(|f| f.path.clone()).collect();
+    let filters: Vec<String> = filters.iter().take(12).map(|f| f.path.clone()).collect();
     if !filters.is_empty() {
-        reasons.push(("filters".into(), "few distinct values (2 to 50)".into()));
+        reasons.push(("filters".into(), "few distinct values (2 to 50; 200 inside lists)".into()));
     }
     taken.extend(filters.iter().cloned());
 
@@ -728,6 +762,71 @@ pub fn to_toml(p: &Proposal) -> String {
 mod tests {
     use super::*;
     use std::io::Write;
+
+    #[test]
+    fn many_machines_with_names_are_groups_and_list_names_are_filters() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("work_orders.jsonl");
+        let mut f = std::fs::File::create(&path).unwrap();
+        for i in 0..1000 {
+            // ~700 machines in 1,000 records: far more than a quarter.
+            let machine = (i * 7) % 700;
+            let status = ["open", "closed"][i % 2];
+            let parts: Vec<_> = (0..i % 3)
+                .map(|k| serde_json::json!({"sku": format!("P-{}", (i + k) % 120), "name": format!("Part {} assembly", (i + k) % 120)}))
+                .collect();
+            writeln!(
+                f,
+                "{}",
+                serde_json::json!({
+                    "id": format!("WO-{i}"),
+                    "description": format!("Replaced worn component on line {} during shift {i}", i % 9),
+                    "asset": {"id": format!("M-{machine}"), "name": format!("Machine {machine}")},
+                    "plan": {"id": format!("PL-{}", i % 6), "name": format!("Plan {}", i % 6)},
+                    "parts": parts,
+                    "status": status,
+                })
+            )
+            .unwrap();
+        }
+        drop(f);
+        let sources = source::discover(&[path], crate::config::Format::Auto, None).unwrap();
+        let p = propose(profile(&sources, None, 2000).unwrap(), &sources);
+        let fields = &p.config.fields;
+        assert_eq!(fields.id.as_deref(), Some("id"));
+        assert_eq!(
+            (fields.group.as_deref(), fields.group_name.as_deref()),
+            (Some("asset.id"), Some("asset.name"))
+        );
+        assert!(
+            fields.filters.contains(&"parts[].name".to_string()),
+            "120 part names in lists: {:?}",
+            fields.filters
+        );
+        assert!(fields.filters.contains(&"plan.name".to_string()));
+        assert!(!fields.filters.contains(&"plan.id".to_string()), "the id beside a name is dropped");
+        assert!(!fields.filters.contains(&"parts[].sku".to_string()), "a code beside a name is dropped");
+    }
+
+    #[test]
+    fn unique_free_text_is_not_an_id_and_unnamed_groups_stay_conservative() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("notes.jsonl");
+        let mut f = std::fs::File::create(&path).unwrap();
+        for i in 0..400 {
+            writeln!(
+                f,
+                "{}",
+                serde_json::json!({"note": format!("visited site and checked meter {i}"), "site": format!("S{}", i % 300)})
+            )
+            .unwrap();
+        }
+        drop(f);
+        let sources = source::discover(&[path], crate::config::Format::Auto, None).unwrap();
+        let fields = propose(profile(&sources, None, 2000).unwrap(), &sources).config.fields;
+        assert_eq!(fields.id, None, "a unique sentence is content");
+        assert_eq!(fields.group, None, "300 sites in 400 records with no name field is not clearly a group");
+    }
 
     #[test]
     fn proposes_a_sensible_mapping_for_tickets() {

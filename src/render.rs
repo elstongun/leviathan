@@ -7,7 +7,9 @@ use std::fmt::Write;
 use crate::card::Card;
 use crate::config::plural;
 use crate::index::IngestReport;
-use crate::query::{AggregateOutcome, Description, GroupMatch, Metric, Scope, SearchOutcome, Sort, Status};
+use crate::query::{
+    AggregateOutcome, AggregateRow, Description, GroupMatch, Metric, Scope, SearchOutcome, Sort, Status,
+};
 
 /// The `YYYY-MM-DD` part of a stored date. Unrecognized dates are stored
 /// raw, so this cuts at ten characters, not bytes.
@@ -193,6 +195,7 @@ pub fn aggregate(o: &AggregateOutcome) -> String {
     let group_noun = &o.about.group;
     let metric = match (o.metric, &o.field) {
         (Metric::Count, _) => format!("count of {}", plural(record)),
+        (Metric::Distinct, Some(f)) => format!("distinct {f}"),
         (m, Some(f)) => format!("{} of {f}", format!("{m:?}").to_lowercase()),
         (m, None) => format!("{m:?}").to_lowercase(),
     };
@@ -206,6 +209,7 @@ pub fn aggregate(o: &AggregateOutcome) -> String {
     for f in &o.filters {
         scope.push(format!("{}={}", f.field, f.value));
     }
+    scope.extend(o.numeric.iter().cloned());
     match (&o.since, &o.until) {
         (Some(a), Some(b)) => scope.push(format!("{a}..{b}")),
         (Some(a), None) => scope.push(format!("since {a}")),
@@ -215,10 +219,34 @@ pub fn aggregate(o: &AggregateOutcome) -> String {
     if !o.query.trim().is_empty() {
         scope.push(format!("matching {:?}", o.query));
     }
-    let by = match o.by.as_deref() {
-        Some("group") => format!(" · by {group_noun}"),
-        Some(b) => format!(" · by {b}"),
-        None => String::new(),
+    let dims: Vec<&str> =
+        o.by.as_deref()
+            .map(|b| b.split(',').map(str::trim).filter(|d| !d.is_empty()).collect())
+            .unwrap_or_default();
+    let by = if dims.is_empty() {
+        String::new()
+    } else {
+        let names: Vec<&str> =
+            dims.iter().map(|d| if *d == "group" { group_noun.as_str() } else { d }).collect();
+        format!(" · by {}", names.join(" and "))
+    };
+    // A row's label, with the group's name where a dimension is the group.
+    let label = |r: &AggregateRow| -> String {
+        let parts: Vec<&str> = if r.keys.is_empty() {
+            vec![r.key.as_str()]
+        } else {
+            r.keys.iter().map(String::as_str).collect()
+        };
+        parts
+            .iter()
+            .enumerate()
+            .map(|(i, k)| match (k.is_empty(), dims.get(i)) {
+                (true, _) => "(none)".to_string(),
+                (false, Some(&"group")) => group_label(k, r.name.as_deref()),
+                _ => k.to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(" · ")
     };
     let mut out = format!("leviathan aggregate · {metric}{by}");
     if !scope.is_empty() {
@@ -232,11 +260,9 @@ pub fn aggregate(o: &AggregateOutcome) -> String {
     } else if o.by.is_none() {
         let _ = writeln!(out, "  total: {}", number(o.value));
     } else {
-        let width =
-            o.rows.iter().map(|r| group_label(&r.key, r.name.as_deref()).chars().count()).max().unwrap_or(0);
+        let width = o.rows.iter().map(|r| label(r).chars().count()).max().unwrap_or(0);
         for r in &o.rows {
-            let label =
-                if r.key.is_empty() { "(none)".to_string() } else { group_label(&r.key, r.name.as_deref()) };
+            let label = label(r);
             let records = if o.metric == Metric::Count {
                 String::new()
             } else {

@@ -166,16 +166,18 @@ fn data_tools(store: Option<&Store>) -> Vec<Value> {
         }),
         json!({
             "name": "aggregate",
-            "description": "Exact counts and totals over every matching record, from the index: how many, which group has the \
-                most, per year or month, per filter value. Count records, or sum/avg/min/max a numeric field, optionally \
-                grouped. Takes the same group, filters, words and dates as search. Use it instead of reading or scanning \
-                the data for any question about how many, how much, or which most.",
+            "description": "Exact counts and totals over every matching record, from the index: how many, how many different, \
+                which group has the most, per year or month, per any field, or two at once (group,month). Count records, \
+                count distinct values of a field, or sum/avg/min/max a numeric field; keep only records meeting numeric \
+                conditions (hours>4). Takes the same group, filters, words and dates as search. Use it instead of reading \
+                or scanning the data for any question about how many, how much, or which most.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "by": {"type": "string", "description": "group, year, month, day, or a filter field; omit for one total"},
-                    "metric": {"type": "string", "enum": ["count", "sum", "avg", "min", "max"], "description": "Default count"},
-                    "field": {"type": "string", "description": "Numeric field for sum/avg/min/max, e.g. hours or labor[].hours"},
+                    "by": {"type": "string", "description": "group, year, month, day, a filter field or any field (parts[].name); two comma-separated for a breakdown (group,month); omit for one total"},
+                    "metric": {"type": "string", "enum": ["count", "distinct", "sum", "avg", "min", "max"], "description": "Default count; distinct counts different values of field"},
+                    "field": {"type": "string", "description": "Field for distinct (any values) or sum/avg/min/max (numbers), e.g. labor[].tech or hours"},
+                    "numeric": {"type": "array", "items": {"type": "string"}, "description": "Keep records whose number field compares: hours>4, total<=100 (> >= < <= = !=)"},
                     "group": {"type": "string", "description": "One group key or name"},
                     "group_contains": {"type": "string", "description": "Every group whose key or name contains this, e.g. a site or prefix"},
                     "where": {"type": "object", "additionalProperties": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]}, "description": "Exact filters, as in search"},
@@ -512,7 +514,7 @@ impl Session {
                 let metric = match text("metric") {
                     None => Metric::Count,
                     Some(m) => Metric::parse(&m).ok_or_else(|| {
-                        anyhow::anyhow!("unknown metric {m:?}; use count, sum, avg, min or max")
+                        anyhow::anyhow!("unknown metric {m:?}; use count, distinct, sum, avg, min or max")
                     })?,
                 };
                 let req = AggregateRequest {
@@ -520,6 +522,7 @@ impl Session {
                     group: text("group"),
                     group_contains: text("group_contains"),
                     filters: where_filters(args)?,
+                    numeric: list_arg(args, "numeric"),
                     since: text("since"),
                     until: text("until"),
                     by: text("by"),

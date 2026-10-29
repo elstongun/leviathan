@@ -6,12 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-29
+
 ### Added
 
 - **`aggregate`**: exact counts, sums, averages, minimums and maximums over
   every record a search would select (words, group, `group_contains`,
   filters, dates), optionally per group, year, month, day or filter field.
   Records without the field they are split by land in a `(none)` bucket.
+  Also: `distinct` counts the different values of a field; `by` takes any
+  field path, not only filters, and two dimensions at once (`group,month`);
+  `numeric` keeps records whose number field compares (`hours>4`).
   MCP tool `aggregate`, CLI `leviathan aggregate`, REST `/v1/aggregate`.
 - **Several kinds of record in one index.** `leviathan index <dir>` sorts
   its sources into kinds by their fields and infers a mapping for each;
@@ -31,6 +36,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Inference no longer makes unique free text (a description) the id.
+- Inference finds groups with many members when the evidence is strong
+  (`asset.id` beside `asset.name`: 1,500 machines in a 2,000-record sample),
+  makes names inside lists filters (`parts[].name`, `labor[].tech`, up to 200
+  values), drops an id that sits beside its name (`plan.id`, `parts[].sku`)
+  and proposes up to 12 filters.
 - A group's name comes from its most recent record that has one.
 - Without `--strict`, a file that cannot be read is skipped and reported
   instead of failing the build; empty records (`{}`) are skipped.
@@ -128,6 +138,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `examples/maintenance`), and a deterministic synthetic benchmark
   (`bench/`).
 
-[Unreleased]: https://github.com/elstongun/leviathan/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/elstongun/leviathan/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/elstongun/leviathan/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/elstongun/leviathan/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/elstongun/leviathan/releases/tag/v0.1.0

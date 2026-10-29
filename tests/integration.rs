@@ -524,12 +524,18 @@ fn aggregate_sums_averages_and_ranges_a_numeric_field() {
     let min = store.aggregate(&req).unwrap();
     assert_eq!((min.records, min.value), (1, 4.0));
 
-    let mut bad = agg(Some("site"));
+    let by_field = store.aggregate(&agg(Some("site"))).unwrap();
     assert_eq!(
-        store.aggregate(&bad).unwrap().status,
-        Status::BadRequest,
-        "by must be group, a date unit, or a filter"
+        by_field.rows.iter().map(|r| (r.key.as_str(), r.records)).collect::<Vec<_>>(),
+        [("north", 2), ("south", 2)],
+        "any field splits, not just filters"
     );
+    let mut bad = agg(Some("group,year,month"));
+    assert_eq!(store.aggregate(&bad).unwrap().status, Status::BadRequest, "at most two dimensions");
+    bad.by = Some("group".into());
+    bad.numeric = vec!["hours>>4".into()];
+    assert_eq!(store.aggregate(&bad).unwrap().status, Status::BadRequest, "a malformed condition");
+    bad.numeric.clear();
     bad.by = None;
     bad.metric = Metric::Sum;
     assert_eq!(store.aggregate(&bad).unwrap().status, Status::BadRequest, "sum needs a field");
@@ -597,6 +603,7 @@ struct Row {
     kind: Option<&'static str>,
     tags: Vec<&'static str>,
     hours: Vec<f64>,
+    hours_raw: Option<Value>,
     words: Vec<&'static str>,
 }
 
@@ -643,11 +650,11 @@ fn random_rows(rng: &mut Lcg, n: usize) -> (Vec<Row>, String) {
         if let Some(k) = kind {
             doc["kind"] = json!(k);
         }
-        if let Some(h) = hours_json {
-            doc["hours"] = h;
+        if let Some(h) = &hours_json {
+            doc["hours"] = h.clone();
         }
         lines.push(doc.to_string());
-        rows.push(Row { site, date, kind, tags, hours, words });
+        rows.push(Row { site, date, kind, tags, hours, hours_raw: hours_json, words });
     }
     (rows, lines.join("\n"))
 }
@@ -675,14 +682,38 @@ fn aggregate_agrees_with_a_brute_force_count_over_random_data() {
     assert_eq!(report.record_count, 2500);
     let store = open(&index);
 
-    let bys = [None, Some("group"), Some("year"), Some("month"), Some("day"), Some("kind"), Some("tags[]")];
-    let metrics = [Metric::Count, Metric::Sum, Metric::Avg, Metric::Min, Metric::Max];
-    for case in 0..400 {
+    let bys = [
+        None,
+        Some("group"),
+        Some("year"),
+        Some("month"),
+        Some("day"),
+        Some("kind"),
+        Some("tags[]"),
+        Some("site"),
+        Some("hours"),
+        Some("group,year"),
+        Some("kind,tags[]"),
+        Some("month,site"),
+    ];
+    let metrics = [Metric::Count, Metric::Sum, Metric::Avg, Metric::Min, Metric::Max, Metric::Distinct];
+    for case in 0..600 {
         let mut req = AggregateRequest { limit: 200, ..Default::default() };
         req.by = bys[rng.below(bys.len() as u64) as usize].map(str::to_string);
-        req.metric = metrics[rng.below(5) as usize];
-        if req.metric != Metric::Count {
-            req.field = Some("hours".into());
+        req.metric = metrics[rng.below(6) as usize];
+        req.field = match req.metric {
+            Metric::Count => None,
+            Metric::Distinct => Some(["tags[]", "site", "kind"][rng.below(3) as usize].into()),
+            _ => Some("hours".into()),
+        };
+        let threshold = [0.0, 50.0, 500.0, 1500.0][rng.below(4) as usize];
+        let condition = match rng.below(8) {
+            0 => Some((format!("hours>{threshold}"), true)),
+            1 => Some((format!("hours<={threshold}"), false)),
+            _ => None,
+        };
+        if let Some((c, _)) = &condition {
+            req.numeric.push(c.clone());
         }
         if rng.chance(30) {
             req.group = Some(format!("S{}", rng.below(9)));
@@ -729,60 +760,107 @@ fn aggregate_agrees_with_a_brute_force_count_over_random_data() {
                 None if !req.query.is_empty() => r.words.contains(&req.query.as_str()),
                 None => true,
             })
+            .filter(|r| match &condition {
+                Some((_, true)) => r.hours.iter().any(|h| *h > threshold),
+                Some((_, false)) => r.hours.iter().any(|h| *h <= threshold),
+                None => true,
+            })
             .collect();
+        let dim_keys = |dim: &str, r: &Row| -> Vec<String> {
+            let mut keys: Vec<String> = match dim {
+                "group" | "site" => r.site.iter().cloned().collect(),
+                "year" => r.date.as_deref().map(|d| d[..4].to_string()).into_iter().collect(),
+                "month" => r.date.as_deref().map(|d| d[..7].to_string()).into_iter().collect(),
+                "day" => r.date.iter().cloned().collect(),
+                "kind" => r.kind.iter().map(|k| k.to_string()).collect(),
+                "tags[]" => r.tags.iter().map(|t| t.to_string()).collect(),
+                _ => match &r.hours_raw {
+                    Some(Value::Number(n)) => vec![n.to_string()],
+                    Some(Value::String(s)) if !s.trim().is_empty() => vec![s.trim().to_string()],
+                    _ => Vec::new(),
+                },
+            };
+            keys.sort_unstable();
+            keys.dedup();
+            if keys.is_empty() {
+                keys.push(String::new());
+            }
+            keys
+        };
         let keys = |r: &Row| -> Vec<String> {
-            match req.by.as_deref() {
-                None => vec![String::new()],
-                Some("group") => vec![r.site.clone().unwrap_or_default()],
-                Some("year") => vec![r.date.as_deref().map(|d| d[..4].to_string()).unwrap_or_default()],
-                Some("month") => vec![r.date.as_deref().map(|d| d[..7].to_string()).unwrap_or_default()],
-                Some("day") => vec![r.date.clone().unwrap_or_default()],
-                Some("kind") => vec![r.kind.unwrap_or_default().to_string()],
-                _ if r.tags.is_empty() => vec![String::new()],
-                _ => r.tags.iter().map(|t| t.to_string()).collect(),
+            let dims: Vec<&str> = req.by.as_deref().map(|b| b.split(',').collect()).unwrap_or_default();
+            match dims.as_slice() {
+                [] => vec![String::new()],
+                [a] => dim_keys(a, r),
+                [a, b] => dim_keys(a, r)
+                    .iter()
+                    .flat_map(|x| dim_keys(b, r).into_iter().map(move |y| format!("{x} · {y}")))
+                    .collect(),
+                _ => unreachable!(),
             }
         };
-        let metric_of = |records: usize, values: &[f64]| -> f64 {
-            let round = |v: f64| (v * 1e6).round() / 1e6;
-            match req.metric {
-                Metric::Count => records as f64,
-                _ if values.is_empty() => 0.0,
-                Metric::Sum => round(values.iter().sum()),
-                Metric::Avg => round(values.iter().sum::<f64>() / values.len() as f64),
-                Metric::Min => values.iter().copied().fold(f64::INFINITY, f64::min),
-                Metric::Max => values.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+        let texts = |r: &Row| -> Vec<String> {
+            match req.field.as_deref() {
+                Some("tags[]") => r.tags.iter().map(|t| t.to_string()).collect(),
+                Some("site") => r.site.iter().cloned().collect(),
+                Some("kind") => r.kind.iter().map(|k| k.to_string()).collect(),
+                _ => Vec::new(),
             }
         };
-        let mut buckets: std::collections::BTreeMap<String, (usize, Vec<f64>)> = Default::default();
+        let metric_of =
+            |records: usize, values: &[f64], distinct: &std::collections::HashSet<String>| -> f64 {
+                let round = |v: f64| (v * 1e6).round() / 1e6;
+                match req.metric {
+                    Metric::Count => records as f64,
+                    Metric::Distinct => distinct.len() as f64,
+                    _ if values.is_empty() => 0.0,
+                    Metric::Sum => round(values.iter().sum()),
+                    Metric::Avg => round(values.iter().sum::<f64>() / values.len() as f64),
+                    Metric::Min => values.iter().copied().fold(f64::INFINITY, f64::min),
+                    Metric::Max => values.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+                }
+            };
+        type Bucket = (usize, Vec<f64>, std::collections::HashSet<String>);
+        let mut buckets: std::collections::BTreeMap<String, Bucket> = Default::default();
+        let numeric = req.metric != Metric::Count && req.metric != Metric::Distinct;
         for r in &selected {
             for k in keys(r) {
                 let b = buckets.entry(k).or_default();
                 b.0 += 1;
-                b.1.extend(&r.hours);
+                if numeric {
+                    b.1.extend(&r.hours);
+                }
+                b.2.extend(texts(r));
             }
         }
-        let all_values: Vec<f64> = selected.iter().flat_map(|r| r.hours.iter().copied()).collect();
+        let all_values: Vec<f64> = if numeric {
+            selected.iter().flat_map(|r| r.hours.iter().copied()).collect()
+        } else {
+            Vec::new()
+        };
+        let all_distinct: std::collections::HashSet<String> =
+            selected.iter().flat_map(|r| texts(r)).collect();
 
         let out = store.aggregate(&req).unwrap();
         let context = format!("case {case}: {req:?}");
         assert_eq!(out.status, Status::Ok, "{context}: {:?}", out.notes);
         assert_eq!(out.records, selected.len() as i64, "{context}");
         assert!(
-            (out.value - metric_of(selected.len(), &all_values)).abs() < 2e-6,
+            (out.value - metric_of(selected.len(), &all_values, &all_distinct)).abs() < 2e-6,
             "{context}: total {}",
             out.value
         );
         if req.by.is_some() {
             assert_eq!(out.buckets, buckets.len() as i64, "{context}");
             for row in &out.rows {
-                let (n, values) = &buckets[&row.key];
+                let (n, values, distinct) = &buckets[&row.key];
                 assert_eq!(row.records, *n as i64, "{context}: bucket {}", row.key);
                 assert!(
-                    (row.value - metric_of(*n, values)).abs() < 2e-6,
+                    (row.value - metric_of(*n, values, distinct)).abs() < 2e-6,
                     "{context}: bucket {} = {} expected {}",
                     row.key,
                     row.value,
-                    metric_of(*n, values)
+                    metric_of(*n, values, distinct)
                 );
             }
             assert!(out.rows.windows(2).all(|w| w[0].value >= w[1].value), "{context}: largest first");
@@ -816,8 +894,10 @@ fn aggregate_cli_and_mcp_agree() {
     assert_eq!(cli_json["records"], 24);
     let text = cli(&index, &["aggregate", "--by", "status"]);
     assert!(String::from_utf8_lossy(&text.stdout).contains("distinct · total 24"));
-    let bad = cli(&index, &["aggregate", "--by", "nonsense"]);
-    assert!(String::from_utf8_lossy(&bad.stdout).contains("cannot aggregate by `nonsense`"));
+    let unknown = cli(&index, &["aggregate", "--by", "nonsense"]);
+    assert!(String::from_utf8_lossy(&unknown.stdout).contains("no values at `nonsense`"));
+    let two = cli(&index, &["aggregate", "--by", "group,status", "--numeric", "id!=0"]);
+    assert!(two.status.success(), "{}", String::from_utf8_lossy(&two.stderr));
 
     let mut child = Command::new(env!("CARGO_BIN_EXE_leviathan"))
         .arg("--index")

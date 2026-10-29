@@ -159,15 +159,19 @@ enum Command {
     Aggregate {
         /// Words the records must match (optional).
         words: Vec<String>,
-        /// group, year, month, day, or a filter field; omit for one total.
+        /// group, year, month, day, a filter field or any field path; two
+        /// comma-separated for a breakdown (group,month); omit for one total.
         #[arg(long)]
         by: Option<String>,
-        /// count (default), sum, avg, min or max.
+        /// count (default), distinct, sum, avg, min or max.
         #[arg(long, value_enum, default_value_t)]
         metric: Metric,
-        /// Numeric field for sum/avg/min/max (e.g. hours, labor[].hours).
+        /// Field for distinct (any values) or sum/avg/min/max (numbers), e.g. labor[].tech, hours.
         #[arg(long)]
         field: Option<String>,
+        /// Keep records whose number field compares: hours>4, total<=100 (repeatable).
+        #[arg(long, value_name = "FIELD>NUMBER")]
+        numeric: Vec<String>,
         /// One group key or name.
         #[arg(short, long)]
         group: Option<String>,
@@ -469,6 +473,7 @@ fn run(cli: Cli) -> Result<u8> {
             by,
             metric,
             field,
+            numeric,
             group,
             group_contains,
             filters,
@@ -481,6 +486,7 @@ fn run(cli: Cli) -> Result<u8> {
                 group,
                 group_contains,
                 filters: parse_filters(&filters)?,
+                numeric,
                 since,
                 until,
                 by,

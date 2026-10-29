@@ -56,6 +56,10 @@ leviathan aggregate --by group --where kind=breakdown --since 2023 --until 2023 
 leviathan aggregate --by month -g "<group>"                                 # per month (or year, day)
 leviathan aggregate --by priority --group-contains "Hall G"                 # per filter value, groups by name words
 leviathan aggregate --metric sum --field hours -g "<group>" --since 2025    # sum, avg, min or max of a field
+leviathan aggregate --metric distinct --field "labor[].tech"                # how many different values
+leviathan aggregate --by "parts[].name"                                     # per value of any field, not just filters
+leviathan aggregate --by group,month --since 2025                           # two at once
+leviathan aggregate --by crew --numeric "hours>4"                           # only records meeting number conditions
 ```
 
 ## Reading the output

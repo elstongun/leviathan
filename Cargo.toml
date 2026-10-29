@@ -11,7 +11,7 @@ authors = ["Joshua Baker <joshuapbak@gmail.com>"]
 
 [package]
 name = "leviathan-index"
-version = "0.2.0"
+version = "0.3.0"
 description = "Deep memory for agents: index JSONL, CSV, SQLite or any database export once and answer with a few ranked, cited records, plus a read/write long-term memory store that replaces markdown memory files. CLI, MCP over stdio or HTTP, REST."
 readme = "README.md"
 keywords = ["mcp", "agents", "memory", "search", "sqlite"]
