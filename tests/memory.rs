@@ -30,13 +30,13 @@ fn recall(m: &mut Memory, query: &str) -> Vec<String> {
 fn a_key_supersedes_the_old_value_and_keeps_history() {
     let tmp = tempfile::tempdir().unwrap();
     let mut m = open(tmp.path());
-    let first = m.remember(&slot("Joshua", "editor", "Uses VS Code for everything")).unwrap();
+    let first = m.remember(&slot("Sam", "editor", "Uses VS Code for everything")).unwrap();
     assert_eq!(first.status, WriteStatus::Created);
     assert_eq!(first.memory.kind, Kind::Fact);
-    let second = m.remember(&slot("joshua", "Editor", "Switched to vim for all editing")).unwrap();
+    let second = m.remember(&slot("sam", "Editor", "Switched to vim for all editing")).unwrap();
     assert_eq!(second.status, WriteStatus::Replaced);
     assert_eq!(second.replaced.as_ref().unwrap().id, first.memory.id);
-    assert_eq!(second.memory.subject.as_deref(), Some("Joshua"), "first spelling of a subject is kept");
+    assert_eq!(second.memory.subject.as_deref(), Some("Sam"), "first spelling of a subject is kept");
 
     assert_eq!(recall(&mut m, "editor"), ["Switched to vim for all editing"]);
     let history = m.history(Some(&second.memory.id), None, None, None).unwrap();
@@ -48,7 +48,7 @@ fn a_key_supersedes_the_old_value_and_keeps_history() {
     assert_eq!(all.results.len(), 2);
     assert!(all.results.iter().any(|r| r.state == State::Superseded));
 
-    let same = m.remember(&slot("Joshua", "editor", "Switched to vim for all editing")).unwrap();
+    let same = m.remember(&slot("Sam", "editor", "Switched to vim for all editing")).unwrap();
     assert_eq!(same.status, WriteStatus::Duplicate);
     assert_eq!(m.stats().unwrap().current, 1);
 }
@@ -169,26 +169,26 @@ fn subjects_resolve_by_alias_and_typo_and_ambiguity_is_refused() {
     let tmp = tempfile::tempdir().unwrap();
     let mut m = open(tmp.path());
     m.remember(&Remember {
-        aliases: vec!["JB".into()],
-        ..slot("Joshua Baker", "timezone", "Works in US Central time")
+        aliases: vec!["SR".into()],
+        ..slot("Sam Rivera", "timezone", "Works in Central European time")
     })
     .unwrap();
     m.remember(&slot("Billing service", "language", "Written in Rust")).unwrap();
     m.remember(&slot("Billing worker", "language", "Written in Go")).unwrap();
 
     let by_alias =
-        m.recall(&RecallRequest { subject: Some("jb".into()), ..Default::default() }, None).unwrap();
-    assert_eq!(by_alias.subject.as_deref(), Some("Joshua Baker"));
+        m.recall(&RecallRequest { subject: Some("sr".into()), ..Default::default() }, None).unwrap();
+    assert_eq!(by_alias.subject.as_deref(), Some("Sam Rivera"));
     assert_eq!(by_alias.results.len(), 1);
     let typo =
-        m.recall(&RecallRequest { subject: Some("joshua bakr".into()), ..Default::default() }, None).unwrap();
+        m.recall(&RecallRequest { subject: Some("sam rivra".into()), ..Default::default() }, None).unwrap();
     assert_eq!(typo.results.len(), 1);
     assert!(typo.notes[0].contains("matched"));
     let ambiguous =
         m.recall(&RecallRequest { subject: Some("billing".into()), ..Default::default() }, None).unwrap();
     assert_eq!(ambiguous.status, RecallStatus::AmbiguousSubject);
     assert!(ambiguous.results.is_empty());
-    let alias_write = m.remember(&slot("JB", "timezone", "Works in US Eastern time now")).unwrap();
+    let alias_write = m.remember(&slot("SR", "timezone", "Works in US Eastern time now")).unwrap();
     assert_eq!(alias_write.status, WriteStatus::Replaced, "an alias writes to the canonical slot");
 }
 
@@ -243,8 +243,8 @@ fn as_of_answers_what_was_true_then() {
 fn export_import_round_trips_and_markdown_imports_as_notes() {
     let tmp = tempfile::tempdir().unwrap();
     let mut a = open(tmp.path());
-    a.remember(&slot("joshua", "editor", "vim")).unwrap();
-    a.remember(&slot("joshua", "editor", "helix")).unwrap();
+    a.remember(&slot("sam", "editor", "vim")).unwrap();
+    a.remember(&slot("sam", "editor", "helix")).unwrap();
     a.remember(&Remember {
         tags: vec!["Infra".into()],
         refs: vec!["T-1001".into()],
@@ -261,7 +261,7 @@ fn export_import_round_trips_and_markdown_imports_as_notes() {
     assert_eq!(recall(&mut b, "editor"), ["helix"]);
     assert_eq!(b.stats().unwrap().superseded, 1);
 
-    let md = "---\ntitle: notes\n- not an item\n---\n# Joshua\n- Prefers dark mode\n- Prefers dark mode\n\n```bash\n- not an item either\n```\n## Release process\n1. Tag after CI is green\n* [ ] Write the changelog first\nplain prose is ignored\n";
+    let md = "---\ntitle: notes\n- not an item\n---\n# Sam\n- Prefers dark mode\n- Prefers dark mode\n\n```bash\n- not an item either\n```\n## Release process\n1. Tag after CI is green\n* [ ] Write the changelog first\nplain prose is ignored\n";
     let r = b.import_markdown(md, None, "MEMORY.md").unwrap();
     assert_eq!((r.read, r.created, r.merged), (4, 3, 1));
     let tagged = b

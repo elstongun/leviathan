@@ -31,7 +31,7 @@ subject, or ask the user.
 ## Remember
 
 ```bash
-leviathan memory remember "Prefers pnpm over npm" --kind preference -s josh -k package_manager
+leviathan memory remember "Prefers pnpm over npm" --kind preference -s sam -k package_manager
 leviathan memory remember "Deploys go through staging first, after the March outage" --kind decision -s deploys -k path -i 4
 leviathan memory remember "The flaky auth test fails when run before the cache warms" --kind lesson -s auth-tests
 ```
@@ -51,8 +51,8 @@ now wrong, forget it or overwrite its key.
 
 ```bash
 leviathan memory forget <id> --reason "moved to yarn"
-leviathan memory forget -s josh -k package_manager
-leviathan memory history -s josh -k package_manager    # every value the slot has had
+leviathan memory forget -s sam -k package_manager
+leviathan memory history -s sam -k package_manager    # every value the slot has had
 leviathan memory recall --as-of 2025-06 deploy          # what was true then
 ```
 

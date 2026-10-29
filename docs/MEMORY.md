@@ -48,12 +48,12 @@ After that, the agent has four tools and an instruction to use them:
 The same from a shell:
 
 ```bash
-leviathan memory remember "Prefers pnpm over npm" --kind preference -s josh -k package_manager
+leviathan memory remember "Prefers pnpm over npm" --kind preference -s sam -k package_manager
 leviathan memory remember "Deploys go through staging first, after the March outage" --kind decision -s deploys -k path
 leviathan memory recall package manager
-leviathan memory recall -s josh                      # everything current about a subject
+leviathan memory recall -s sam                      # everything current about a subject
 leviathan memory briefing                            # what a session starts with
-leviathan memory history -s josh -k package_manager  # every value that slot has had
+leviathan memory history -s sam -k package_manager  # every value that slot has had
 ```
 
 ## What a memory is
@@ -64,7 +64,7 @@ One claim, in a sentence, with a little structure around it:
 |---|---|
 | `text` | The claim. At most `max_chars` (400) characters; say one thing |
 | `kind` | `fact`, `preference`, `decision` (say why), `lesson`, `event`, `task`, `note` |
-| `subject` | Who or what it is about (`josh`, `billing-api`, `the deploy`). Resolved like Leviathan groups: exact, alias, contains, then fuzzy, and ambiguity is refused |
+| `subject` | Who or what it is about (`sam`, `billing-api`, `the deploy`). Resolved like Leviathan groups: exact, alias, contains, then fuzzy, and ambiguity is refused |
 | `key` | The slot that can change (`editor`, `deploy.target`, `owner`). A new value for the same subject + key **supersedes** the old one |
 | `importance` | 1 (trivia) to 5 (critical); default 3 |
 | `confidence` | 0 to 1; lowers ranking, default 1 |
@@ -93,7 +93,7 @@ Writes are checked before they land:
 
 ```text
 memory for "package manager" · shown 2 of 2 · ~61/800 tokens · default
-[preference] josh · package_manager: Prefers pnpm over npm (2026-10-09 · m01m4fx4b90swvdpa)
+[preference] sam · package_manager: Prefers pnpm over npm (2026-10-09 · m01m4fx4b90swvdpa)
 [decision] web-app · package_manager: Switched the web app to pnpm workspaces (2026-09-30 · user · m01m4ffq2zr9ad1k)
 ```
 
@@ -146,7 +146,7 @@ everything:
 [memory]
 namespace = "web-app"          # where this project's writes go
 read = ["web-app", "global"]   # what its recalls see
-pin = ["josh"]                 # subjects that lead every briefing
+pin = ["sam"]                 # subjects that lead every briefing
 ```
 
 `--ns` on any command, or `ns` on any tool, overrides it for one call. `*` reads every namespace.

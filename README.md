@@ -134,7 +134,7 @@ with a short briefing, and `recall` returns only what fits a token budget.
 
 ```bash
 leviathan wrap claude --memory --hooks --rules --apply   # tools, session-start briefing, always-on rule
-leviathan memory remember "Prefers pnpm over npm" --kind preference -s josh -k package_manager
+leviathan memory remember "Prefers pnpm over npm" --kind preference -s sam -k package_manager
 leviathan memory recall package manager
 leviathan memory import ~/.claude/projects/<project>/memory/MEMORY.md   # bring an existing markdown memory
 ```
