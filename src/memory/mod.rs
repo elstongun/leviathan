@@ -365,7 +365,7 @@ impl MemoryRow {
 }
 
 fn day(ts: &str) -> &str {
-    &ts[..ts.len().min(10)]
+    crate::render::day(ts)
 }
 
 fn row(r: &Row<'_>) -> rusqlite::Result<MemoryRow> {

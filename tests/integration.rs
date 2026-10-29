@@ -394,7 +394,8 @@ fn mcp_round_trip() {
     let counted = rpc(json!({"jsonrpc": "2.0", "id": 6, "method": "tools/call",
         "params": {"name": "aggregate", "arguments": {"by": "group", "format": "json"}}}))
     .unwrap();
-    let counted: Value = serde_json::from_str(counted["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    let counted: Value =
+        serde_json::from_str(counted["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
     assert_eq!((counted["records"].as_i64(), counted["buckets"].as_i64()), (Some(24), Some(4)));
 
     let hit = rpc(json!({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
@@ -442,9 +443,14 @@ fn aggregate_counts_every_record_by_group_and_filter() {
     open_acme.group = Some("acme".into());
     open_acme.filters = vec![("status".into(), "closed".into())];
     let closed = store.aggregate(&open_acme).unwrap();
-    let listed = store.search(&SearchRequest {
-        group: Some("acme".into()), filters: vec![("status".into(), "closed".into())], limit: 50, ..Default::default()
-    }).unwrap();
+    let listed = store
+        .search(&SearchRequest {
+            group: Some("acme".into()),
+            filters: vec![("status".into(), "closed".into())],
+            limit: 50,
+            ..Default::default()
+        })
+        .unwrap();
     assert_eq!(closed.records, listed.total_matches);
 
     // A multi-valued filter puts a record in several buckets but counts it once.
@@ -483,7 +489,11 @@ fn aggregate_sums_averages_and_ranges_a_numeric_field() {
     )
     .unwrap();
     let toml = tmp.path().join("leviathan.toml");
-    std::fs::write(&toml, "[fields]\nid = \"id\"\ngroup = \"site\"\ndate = \"opened\"\nfilters = [\"kind\"]\n").unwrap();
+    std::fs::write(
+        &toml,
+        "[fields]\nid = \"id\"\ngroup = \"site\"\ndate = \"opened\"\nfilters = [\"kind\"]\n",
+    )
+    .unwrap();
     let cfg = Config::load(&toml).unwrap();
     let sources = source::discover(&[data], Format::Auto).unwrap();
     let index = tmp.path().join("jobs.db");
@@ -499,7 +509,10 @@ fn aggregate_sums_averages_and_ranges_a_numeric_field() {
     req.metric = Metric::Avg;
     req.by = Some("year".into());
     let avg = store.aggregate(&req).unwrap();
-    assert_eq!(avg.rows.iter().map(|r| (r.key.as_str(), r.value)).collect::<Vec<_>>(), [("2025", 1000.0), ("2024", 3.25)]);
+    assert_eq!(
+        avg.rows.iter().map(|r| (r.key.as_str(), r.value)).collect::<Vec<_>>(),
+        [("2025", 1000.0), ("2024", 3.25)]
+    );
     req.by = None;
     req.metric = Metric::Max;
     req.field = Some("labor[].h".into());
@@ -512,8 +525,323 @@ fn aggregate_sums_averages_and_ranges_a_numeric_field() {
     assert_eq!((min.records, min.value), (1, 4.0));
 
     let mut bad = agg(Some("site"));
-    assert_eq!(store.aggregate(&bad).unwrap().status, Status::BadRequest, "by must be group, a date unit, or a filter");
+    assert_eq!(
+        store.aggregate(&bad).unwrap().status,
+        Status::BadRequest,
+        "by must be group, a date unit, or a filter"
+    );
     bad.by = None;
     bad.metric = Metric::Sum;
     assert_eq!(store.aggregate(&bad).unwrap().status, Status::BadRequest, "sum needs a field");
+}
+
+#[test]
+fn unrecognized_non_ascii_dates_render_without_panicking() {
+    let tmp = tempfile::tempdir().unwrap();
+    let index = tmp.path().join("dates.db");
+    let src = tmp.path().join("dates.jsonl");
+    std::fs::write(&src, "{\"id\":\"1\",\"d\":\"2024年3月11日 午後\",\"t\":\"hello\"}\n").unwrap();
+    let built = cli(&index, &["index", "-q", src.to_str().unwrap(), "--id", "id", "--date", "d"]);
+    assert!(built.status.success(), "{}", String::from_utf8_lossy(&built.stderr));
+
+    let described = cli(&index, &["describe"]);
+    assert!(described.status.success(), "{}", String::from_utf8_lossy(&described.stderr));
+    assert!(String::from_utf8_lossy(&described.stdout).contains("dates 2024年3月11日 .. 2024年3月11日"));
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_leviathan"))
+        .arg("--index")
+        .arg(&index)
+        .arg("mcp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    writeln!(stdin, "{}", json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})).unwrap();
+    let mut line = String::new();
+    BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
+    let init: Value = serde_json::from_str(&line).unwrap();
+    assert!(
+        init["result"]["instructions"].as_str().unwrap().contains("dated 2024年3月11日 to 2024年3月11日")
+    );
+    drop(stdin);
+    assert!(child.wait().unwrap().success());
+}
+
+// ---- aggregate against a brute-force count over random data -----------------
+
+/// A small deterministic generator, so failures reproduce.
+struct Lcg(u64);
+
+impl Lcg {
+    fn next(&mut self) -> u64 {
+        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 >> 33
+    }
+    fn below(&mut self, n: u64) -> u64 {
+        self.next() % n
+    }
+    fn chance(&mut self, percent: u64) -> bool {
+        self.below(100) < percent
+    }
+}
+
+const WORDS: [&str; 6] = ["pump", "valve", "motor", "belt", "sensor", "gearbox"];
+const KINDS: [&str; 4] = ["repair", "service", "inspection", "install"];
+const TAGS: [&str; 5] = ["urgent", "warranty", "night", "vendor", "safety"];
+
+struct Row {
+    site: Option<String>,
+    date: Option<String>,
+    kind: Option<&'static str>,
+    tags: Vec<&'static str>,
+    hours: Vec<f64>,
+    words: Vec<&'static str>,
+}
+
+fn random_rows(rng: &mut Lcg, n: usize) -> (Vec<Row>, String) {
+    let mut rows = Vec::new();
+    let mut lines = Vec::new();
+    for i in 0..n {
+        let site = (!rng.chance(5)).then(|| format!("S{}", rng.below(9)));
+        let date = (!rng.chance(8))
+            .then(|| format!("{}-{:02}-{:02}", 2020 + rng.below(6), 1 + rng.below(12), 1 + rng.below(28)));
+        let kind = (!rng.chance(10)).then(|| KINDS[rng.below(4) as usize]);
+        let mut tags: Vec<&str> = (0..rng.below(4)).map(|_| TAGS[rng.below(5) as usize]).collect();
+        tags.sort_unstable();
+        tags.dedup();
+        let words: Vec<&str> = (0..1 + rng.below(3)).map(|_| WORDS[rng.below(6) as usize]).collect();
+        // Hours in every shape a real export has: numbers, strings with
+        // thousands separators, blanks, junk, or missing.
+        let (hours_json, hours): (Option<Value>, Vec<f64>) = match rng.below(7) {
+            0 => (Some(json!(null)), vec![]),
+            1 => (Some(json!("n/a")), vec![]),
+            2 => {
+                let (whole, cents) = (1000 + rng.below(3000), rng.below(100));
+                let text = format!("{},{:03}.{cents:02}", whole / 1000, whole % 1000);
+                (Some(json!(text)), vec![whole as f64 + cents as f64 / 100.0])
+            }
+            3 => (None, vec![]),
+            _ => {
+                let v = rng.below(4000) as f64 / 4.0;
+                (Some(json!(v)), vec![v])
+            }
+        };
+        let mut doc = json!({
+            "id": format!("R{i}"),
+            "summary": words.join(" "),
+            "tags": tags,
+        });
+        if let Some(s) = &site {
+            doc["site"] = json!(s);
+            doc["site_name"] = json!(format!("Site {s}"));
+        }
+        if let Some(d) = &date {
+            doc["opened"] = json!(d);
+        }
+        if let Some(k) = kind {
+            doc["kind"] = json!(k);
+        }
+        if let Some(h) = hours_json {
+            doc["hours"] = h;
+        }
+        lines.push(doc.to_string());
+        rows.push(Row { site, date, kind, tags, hours, words });
+    }
+    (rows, lines.join("\n"))
+}
+
+#[test]
+fn aggregate_agrees_with_a_brute_force_count_over_random_data() {
+    let tmp = tempfile::tempdir().unwrap();
+    let seed = std::env::var("LEVIATHAN_TEST_SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(0x5eed);
+    let mut rng = Lcg(seed);
+    let (rows, jsonl) = random_rows(&mut rng, 2500);
+    let data = tmp.path().join("jobs.jsonl");
+    std::fs::write(&data, jsonl).unwrap();
+    let toml = tmp.path().join("leviathan.toml");
+    std::fs::write(
+        &toml,
+        "[fields]\nid = \"id\"\ntitle = \"summary\"\ntext = [\"summary\"]\ngroup = \"site\"\ngroup_name = \"site_name\"\n\
+         date = \"opened\"\nfilters = [\"kind\", \"tags[]\"]\n",
+    )
+    .unwrap();
+    let cfg = Config::load(&toml).unwrap();
+    let index = tmp.path().join("jobs.db");
+    let report =
+        index::build(&index, &source::discover(&[data], Format::Auto).unwrap(), &cfg, false, quiet())
+            .unwrap();
+    assert_eq!(report.record_count, 2500);
+    let store = open(&index);
+
+    let bys = [None, Some("group"), Some("year"), Some("month"), Some("day"), Some("kind"), Some("tags[]")];
+    let metrics = [Metric::Count, Metric::Sum, Metric::Avg, Metric::Min, Metric::Max];
+    for case in 0..400 {
+        let mut req = AggregateRequest { limit: 200, ..Default::default() };
+        req.by = bys[rng.below(bys.len() as u64) as usize].map(str::to_string);
+        req.metric = metrics[rng.below(5) as usize];
+        if req.metric != Metric::Count {
+            req.field = Some("hours".into());
+        }
+        if rng.chance(30) {
+            req.group = Some(format!("S{}", rng.below(9)));
+        }
+        if rng.chance(30) {
+            req.filters.push(("kind".into(), KINDS[rng.below(4) as usize].into()));
+        }
+        if rng.chance(20) {
+            req.filters.push(("tags[]".into(), TAGS[rng.below(5) as usize].into()));
+        }
+        if rng.chance(25) {
+            req.since = Some(format!("{}-{:02}", 2020 + rng.below(6), 1 + rng.below(12)));
+        }
+        if rng.chance(25) {
+            req.until = Some(format!("{}", 2021 + rng.below(5)));
+        }
+        let (word, without) = (WORDS[rng.below(6) as usize], WORDS[rng.below(6) as usize]);
+        match rng.below(4) {
+            0 => req.query = word.into(),
+            1 if word != without => req.query = format!("{word} -{without}"),
+            _ => {}
+        }
+
+        // The same selection, by hand.
+        let selected: Vec<&Row> = rows
+            .iter()
+            .filter(|r| req.group.as_ref().is_none_or(|g| r.site.as_ref() == Some(g)))
+            .filter(|r| {
+                req.filters.iter().all(|(f, v)| match f.as_str() {
+                    "kind" => r.kind == Some(v.as_str()),
+                    _ => r.tags.contains(&v.as_str()),
+                })
+            })
+            .filter(|r| {
+                req.since.as_ref().is_none_or(|s| r.date.as_ref().is_some_and(|d| d.as_str() >= s.as_str()))
+            })
+            .filter(|r| {
+                req.until
+                    .as_ref()
+                    .is_none_or(|u| r.date.as_ref().is_some_and(|d| &d[..u.len()] <= u.as_str()))
+            })
+            .filter(|r| match req.query.split_once(" -") {
+                Some((w, not)) => r.words.contains(&w) && !r.words.contains(&not),
+                None if !req.query.is_empty() => r.words.contains(&req.query.as_str()),
+                None => true,
+            })
+            .collect();
+        let keys = |r: &Row| -> Vec<String> {
+            match req.by.as_deref() {
+                None => vec![String::new()],
+                Some("group") => vec![r.site.clone().unwrap_or_default()],
+                Some("year") => vec![r.date.as_deref().map(|d| d[..4].to_string()).unwrap_or_default()],
+                Some("month") => vec![r.date.as_deref().map(|d| d[..7].to_string()).unwrap_or_default()],
+                Some("day") => vec![r.date.clone().unwrap_or_default()],
+                Some("kind") => vec![r.kind.unwrap_or_default().to_string()],
+                _ if r.tags.is_empty() => vec![String::new()],
+                _ => r.tags.iter().map(|t| t.to_string()).collect(),
+            }
+        };
+        let metric_of = |records: usize, values: &[f64]| -> f64 {
+            let round = |v: f64| (v * 1e6).round() / 1e6;
+            match req.metric {
+                Metric::Count => records as f64,
+                _ if values.is_empty() => 0.0,
+                Metric::Sum => round(values.iter().sum()),
+                Metric::Avg => round(values.iter().sum::<f64>() / values.len() as f64),
+                Metric::Min => values.iter().copied().fold(f64::INFINITY, f64::min),
+                Metric::Max => values.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+            }
+        };
+        let mut buckets: std::collections::BTreeMap<String, (usize, Vec<f64>)> = Default::default();
+        for r in &selected {
+            for k in keys(r) {
+                let b = buckets.entry(k).or_default();
+                b.0 += 1;
+                b.1.extend(&r.hours);
+            }
+        }
+        let all_values: Vec<f64> = selected.iter().flat_map(|r| r.hours.iter().copied()).collect();
+
+        let out = store.aggregate(&req).unwrap();
+        let context = format!("case {case}: {req:?}");
+        assert_eq!(out.status, Status::Ok, "{context}: {:?}", out.notes);
+        assert_eq!(out.records, selected.len() as i64, "{context}");
+        assert!(
+            (out.value - metric_of(selected.len(), &all_values)).abs() < 2e-6,
+            "{context}: total {}",
+            out.value
+        );
+        if req.by.is_some() {
+            assert_eq!(out.buckets, buckets.len() as i64, "{context}");
+            for row in &out.rows {
+                let (n, values) = &buckets[&row.key];
+                assert_eq!(row.records, *n as i64, "{context}: bucket {}", row.key);
+                assert!(
+                    (row.value - metric_of(*n, values)).abs() < 2e-6,
+                    "{context}: bucket {} = {} expected {}",
+                    row.key,
+                    row.value,
+                    metric_of(*n, values)
+                );
+            }
+            assert!(out.rows.windows(2).all(|w| w[0].value >= w[1].value), "{context}: largest first");
+        }
+    }
+}
+
+#[test]
+fn aggregate_reports_ambiguous_and_unknown_groups_and_truncates_to_limit() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = open(&build_tickets(tmp.path()));
+    let mut req = agg(Some("group"));
+    req.group = Some("no such customer zzz".into());
+    assert_eq!(store.aggregate(&req).unwrap().status, Status::UnknownGroup);
+
+    let mut req = agg(Some("month"));
+    req.limit = 2;
+    let out = store.aggregate(&req).unwrap();
+    assert_eq!(out.rows.len(), 2);
+    assert!(out.buckets > 2, "buckets count every key before the limit");
+    assert!(leviathan::render::aggregate(&out).contains("more (raise limit to see them)"));
+}
+
+#[test]
+fn aggregate_cli_and_mcp_agree() {
+    let tmp = tempfile::tempdir().unwrap();
+    let index = build_tickets(tmp.path());
+    let out = cli(&index, &["--json", "aggregate", "--by", "group"]);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let cli_json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(cli_json["records"], 24);
+    let text = cli(&index, &["aggregate", "--by", "status"]);
+    assert!(String::from_utf8_lossy(&text.stdout).contains("distinct · total 24"));
+    let bad = cli(&index, &["aggregate", "--by", "nonsense"]);
+    assert!(String::from_utf8_lossy(&bad.stdout).contains("cannot aggregate by `nonsense`"));
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_leviathan"))
+        .arg("--index")
+        .arg(&index)
+        .arg("mcp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    let mut reader = BufReader::new(child.stdout.take().unwrap());
+    let mut call = |args: Value| -> Value {
+        writeln!(stdin, "{}", json!({"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {"name": "aggregate", "arguments": args}})).unwrap();
+        let mut line = String::new();
+        reader.read_line(&mut line).unwrap();
+        serde_json::from_str(&line).unwrap()
+    };
+    let res = call(json!({"by": "group", "format": "json"}));
+    let mcp_json: Value =
+        serde_json::from_str(res["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(mcp_json["rows"], cli_json["rows"], "CLI and MCP compute the same buckets");
+    let res = call(json!({"metric": "median"}));
+    assert_eq!(res["result"]["isError"], true, "{res}");
+    drop(stdin);
+    assert!(child.wait().unwrap().success());
 }

@@ -6,6 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`aggregate`**: exact counts, sums, averages, minimums and maximums over
+  every record a search would select (words, group, `group_contains`,
+  filters, dates), optionally per group, year, month, day or filter field.
+  Records without the field they are split by land in a `(none)` bucket.
+  MCP tool `aggregate`, CLI `leviathan aggregate`, REST `/v1/aggregate`.
+
+### Fixed
+
+- `describe`, the MCP server's instructions and memory dates no longer panic
+  when a date value contains non-ASCII text (dates were cut at a byte, not a
+  character, boundary).
+- Numbers in text output read the same whole or fractional: `13,107.5`, not
+  `13107.50` beside `13,200`.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added

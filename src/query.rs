@@ -808,7 +808,10 @@ impl Store {
         let filterable: Vec<&str> = self.mapping.filters.iter().map(|p| p.raw.as_str()).collect();
         for (field, _) in &req.filters {
             if !filterable.contains(&field.as_str()) {
-                return bad(out, format!("`{field}` is not a filter field; filterable: {}", filterable.join(", ")));
+                return bad(
+                    out,
+                    format!("`{field}` is not a filter field; filterable: {}", filterable.join(", ")),
+                );
             }
         }
         for raw in [&req.since, &req.until].into_iter().flatten() {
@@ -824,7 +827,9 @@ impl Store {
         let field = match (req.metric, req.field.as_deref().map(str::trim).filter(|f| !f.is_empty())) {
             (Metric::Count, _) => None,
             (_, Some(f)) => Some(FieldPath::parse(f)),
-            (_, None) => return bad(out, "sum, avg, min and max need `field`, the numeric field to aggregate".into()),
+            (_, None) => {
+                return bad(out, "sum, avg, min and max need `field`, the numeric field to aggregate".into());
+            }
         };
         // How each record is keyed.
         enum By {
@@ -843,7 +848,10 @@ impl Store {
             Some(f) => {
                 return bad(
                     out,
-                    format!("cannot aggregate by `{f}`; use group, year, month, day, or a filter field: {}", filterable.join(", ")),
+                    format!(
+                        "cannot aggregate by `{f}`; use group, year, month, day, or a filter field: {}",
+                        filterable.join(", ")
+                    ),
                 );
             }
         };
@@ -868,7 +876,8 @@ impl Store {
                 }
                 Pick::None => {
                     out.status = Status::UnknownGroup;
-                    out.notes.push(format!("no group matches {group:?}; try resolve_group, or group_contains"));
+                    out.notes
+                        .push(format!("no group matches {group:?}; try resolve_group, or group_contains"));
                     return Ok(out);
                 }
             }
@@ -916,7 +925,10 @@ impl Store {
                 expr = format!("({expr}) NOT ({neg})");
             }
             args.push(SqlValue::Text(expr));
-            clauses.push(format!("r.rowid IN (SELECT rowid FROM record_fts WHERE record_fts MATCH ?{})", args.len()));
+            clauses.push(format!(
+                "r.rowid IN (SELECT rowid FROM record_fts WHERE record_fts MATCH ?{})",
+                args.len()
+            ));
         }
         let where_sql = clauses.join(" AND ");
 
@@ -929,7 +941,11 @@ impl Store {
                 let n = args.len();
                 (
                     "json_extract(j.value, '$[1]')".to_string(),
-                    format!("records AS r JOIN json_each(coalesce(r.facets, '[]')) AS j ON json_extract(j.value, '$[0]') = ?{n}"),
+                    // LEFT: a record without the field lands in the "(none)"
+                    // bucket, as for groups and dates, and still counts in the total.
+                    format!(
+                        "records AS r LEFT JOIN json_each(coalesce(r.facets, '[]')) AS j ON json_extract(j.value, '$[0]') = ?{n}"
+                    ),
                 )
             }
         };
@@ -943,7 +959,8 @@ impl Store {
         let mut buckets: BTreeMap<String, Acc> = BTreeMap::new();
         let mut overall = Acc::default();
         let doc_col = if field.is_some() { "r.doc" } else { "NULL" };
-        let sql = format!("SELECT {key_sql}, r.grp_name, {doc_col}, r.rowid FROM {from_sql} WHERE {where_sql}");
+        let sql =
+            format!("SELECT {key_sql}, r.grp_name, {doc_col}, r.rowid FROM {from_sql} WHERE {where_sql}");
         let mut stmt = self.conn.prepare(&sql)?;
         let mut rows = stmt.query(params_from_iter(args.iter()))?;
         // A record with several values of a facet lands in several buckets
@@ -974,7 +991,12 @@ impl Store {
             out.buckets = buckets.len() as i64;
             let mut rows: Vec<AggregateRow> = buckets
                 .into_iter()
-                .map(|(key, acc)| AggregateRow { value: acc.value(req.metric), records: acc.records, name: acc.name.clone(), key })
+                .map(|(key, acc)| AggregateRow {
+                    value: acc.value(req.metric),
+                    records: acc.records,
+                    name: acc.name.clone(),
+                    key,
+                })
                 .collect();
             rows.sort_by(|a, b| b.value.total_cmp(&a.value).then_with(|| a.key.cmp(&b.key)));
             rows.truncate(limit);

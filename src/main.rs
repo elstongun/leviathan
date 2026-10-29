@@ -395,7 +395,18 @@ fn run(cli: Cli) -> Result<u8> {
             let req = request(find, words.join(" "), sort, !no_fallback)?;
             return search(cli.json, &open()?, &req);
         }
-        Command::Aggregate { words, by, metric, field, group, group_contains, filters, since, until, limit } => {
+        Command::Aggregate {
+            words,
+            by,
+            metric,
+            field,
+            group,
+            group_contains,
+            filters,
+            since,
+            until,
+            limit,
+        } => {
             let req = AggregateRequest {
                 query: words.join(" "),
                 group,

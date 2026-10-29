@@ -74,7 +74,7 @@ fn dataset_summary(store: &Store) -> Option<String> {
         s.push_str(&format!(" across {} {} (group = {g})", render::thousands(d.group_count), plural(group)));
     }
     if let (Some(a), Some(b)) = (&d.date_min, &d.date_max) {
-        s.push_str(&format!(", dated {} to {}", &a[..a.len().min(10)], &b[..b.len().min(10)]));
+        s.push_str(&format!(", dated {} to {}", render::day(a), render::day(b)));
     }
     if !d.filters.is_empty() {
         let parts: Vec<String> = d
@@ -296,7 +296,9 @@ fn where_filters(args: &Value) -> Result<Vec<(String, String)>> {
     if let Some(Value::Object(map)) = args.get("where") {
         for (field, v) in map {
             match v {
-                Value::Array(items) => filters.extend(items.iter().filter_map(scalar).map(|s| (field.clone(), s))),
+                Value::Array(items) => {
+                    filters.extend(items.iter().filter_map(scalar).map(|s| (field.clone(), s)))
+                }
                 other => filters.extend(scalar(other).map(|s| (field.clone(), s))),
             }
         }
@@ -431,7 +433,9 @@ impl Session {
             if self.memory_tools() == Some(MemoryTools::Recall) && matches!(name, "remember" | "forget") {
                 bail!("this server exposes memory read-only (--memory-tools recall)");
             }
-        } else if !self.data_enabled() && matches!(name, "search" | "resolve_group" | "get" | "describe" | "aggregate") {
+        } else if !self.data_enabled()
+            && matches!(name, "search" | "resolve_group" | "get" | "describe" | "aggregate")
+        {
             bail!("no data index on this server; it serves memory only");
         }
 
@@ -492,7 +496,9 @@ impl Session {
             "aggregate" => {
                 let metric = match text("metric") {
                     None => Metric::Count,
-                    Some(m) => Metric::parse(&m).ok_or_else(|| anyhow::anyhow!("unknown metric {m:?}; use count, sum, avg, min or max"))?,
+                    Some(m) => Metric::parse(&m).ok_or_else(|| {
+                        anyhow::anyhow!("unknown metric {m:?}; use count, sum, avg, min or max")
+                    })?,
                 };
                 let req = AggregateRequest {
                     query: text("query").unwrap_or_default(),

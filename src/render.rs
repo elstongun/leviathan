@@ -9,6 +9,12 @@ use crate::config::plural;
 use crate::index::IngestReport;
 use crate::query::{AggregateOutcome, Description, GroupMatch, Metric, Scope, SearchOutcome, Sort, Status};
 
+/// The `YYYY-MM-DD` part of a stored date. Unrecognized dates are stored
+/// raw, so this cuts at ten characters, not bytes.
+pub fn day(date: &str) -> &str {
+    date.char_indices().nth(10).map_or(date, |(i, _)| &date[..i])
+}
+
 pub fn thousands(n: i64) -> String {
     let digits = n.unsigned_abs().to_string();
     let mut out = String::with_capacity(digits.len() + digits.len() / 3 + 1);
@@ -169,12 +175,17 @@ pub fn search(o: &SearchOutcome) -> String {
     out
 }
 
+/// Thousands separators and at most two decimals: `13,107.5`, `13,200`.
 fn number(v: f64) -> String {
-    if v.fract() == 0.0 && v.abs() < 1e15 {
-        thousands(v as i64)
-    } else {
-        format!("{v:.2}")
+    if !v.is_finite() || v.abs() >= 1e15 {
+        return format!("{v}");
     }
+    let fixed = format!("{:.2}", v.abs());
+    let (int, frac) = fixed.split_once('.').unwrap_or((&fixed, ""));
+    let frac = frac.trim_end_matches('0');
+    let sign = if v < 0.0 && !fixed.trim_matches(['0', '.']).is_empty() { "-" } else { "" };
+    let int = thousands(int.parse().unwrap_or(0));
+    if frac.is_empty() { format!("{sign}{int}") } else { format!("{sign}{int}.{frac}") }
 }
 
 pub fn aggregate(o: &AggregateOutcome) -> String {
@@ -221,14 +232,24 @@ pub fn aggregate(o: &AggregateOutcome) -> String {
     } else if o.by.is_none() {
         let _ = writeln!(out, "  total: {}", number(o.value));
     } else {
-        let width = o.rows.iter().map(|r| group_label(&r.key, r.name.as_deref()).chars().count()).max().unwrap_or(0);
+        let width =
+            o.rows.iter().map(|r| group_label(&r.key, r.name.as_deref()).chars().count()).max().unwrap_or(0);
         for r in &o.rows {
-            let label = if r.key.is_empty() { "(none)".to_string() } else { group_label(&r.key, r.name.as_deref()) };
-            let records = if o.metric == Metric::Count { String::new() } else { format!("  ({})", count(r.records, record)) };
+            let label =
+                if r.key.is_empty() { "(none)".to_string() } else { group_label(&r.key, r.name.as_deref()) };
+            let records = if o.metric == Metric::Count {
+                String::new()
+            } else {
+                format!("  ({})", count(r.records, record))
+            };
             let _ = writeln!(out, "  {label:width$}  {}{records}", number(r.value));
         }
         if o.buckets > o.rows.len() as i64 {
-            let _ = writeln!(out, "  … {} more (raise limit to see them)", thousands(o.buckets - o.rows.len() as i64));
+            let _ = writeln!(
+                out,
+                "  … {} more (raise limit to see them)",
+                thousands(o.buckets - o.rows.len() as i64)
+            );
         }
         let _ = writeln!(out, "  {} distinct · total {}", thousands(o.buckets), number(o.value));
     }
@@ -362,7 +383,7 @@ pub fn describe(d: &Description) -> String {
         let _ = write!(out, " · {}", count(d.group_count, group));
     }
     if let (Some(a), Some(b)) = (&d.date_min, &d.date_max) {
-        let _ = write!(out, " · dates {} .. {}", &a[..a.len().min(10)], &b[..b.len().min(10)]);
+        let _ = write!(out, " · dates {} .. {}", day(a), day(b));
     }
     let _ = writeln!(
         out,
@@ -464,6 +485,24 @@ pub fn describe(d: &Description) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn numbers_read_the_same_whole_or_fractional() {
+        assert_eq!(super::number(13_200.0), "13,200");
+        assert_eq!(super::number(13_107.5), "13,107.5");
+        assert_eq!(super::number(1_234_567.891), "1,234,567.89");
+        assert_eq!(super::number(0.004), "0");
+        assert_eq!(super::number(-0.004), "0");
+        assert_eq!(super::number(-2_500.25), "-2,500.25");
+        assert_eq!(super::number(0.5), "0.5");
+    }
+
+    #[test]
+    fn days_cut_at_characters_not_bytes() {
+        assert_eq!(super::day("2024-03-11T09:00:00Z"), "2024-03-11");
+        assert_eq!(super::day("2024年3月11日 午後"), "2024年3月11日");
+        assert_eq!(super::day("short"), "short");
+    }
+
     #[test]
     fn thousands_separators() {
         assert_eq!(super::thousands(0), "0");
